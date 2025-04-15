@@ -3,40 +3,63 @@ import * as THREE from 'three';
 let scene, camera, renderer, cube;
 let isDragging = false;
 let startX = 0;
-let rotationY = 0;
+let startY = 0;
 let currentFaceIndex = 0;
 
+let targetRotation = { x: 0, y: 0 };
+let easing = 0.1;
+
 const loader = new THREE.TextureLoader();
+
 const projects = [
-  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project1' },
-  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project2' },
+  { image: '/DD.jpg', link: 'https://github.com/you/project1' },
+  { image: 'https://images.unsplash.com/photo-1728044849221-851cf8587fac?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', link: '#' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project3' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project4' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project5' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project6' }
 ];
 
-// Shuffle and assign
+// Shuffle and assign 6 random projects
 const shuffled = projects.sort(() => 0.5 - Math.random()).slice(0, 6);
-const materials = shuffled.map(p => 
-  new THREE.MeshBasicMaterial({ map: loader.load(p.image) })
-);
+
+// Function to create a material with high-quality texture
+async function createMaterial(imagePath) {
+  const texture = await loader.loadAsync(imagePath);
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  texture.needsUpdate = true;
+
+  return new THREE.MeshBasicMaterial({ map: texture });
+}
+
+
+
+let materials = [];
+Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) => {
+  materials = loadedMaterials;
+  cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materials);
+  scene.add(cube);
+});
 
 init();
 animate();
 
 function init() {
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
-  camera.position.z = 3;
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 2.5;
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NoToneMapping; // Prevent color distortion
   document.body.appendChild(renderer.domElement);
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
-  cube = new THREE.Mesh(geometry, materials);
-  scene.add(cube);
 
   updateLink(0); // Start with front face (index 4 in Three.js)
 
@@ -44,24 +67,48 @@ function init() {
   window.addEventListener('mousedown', (e) => {
     isDragging = true;
     startX = e.clientX;
+    startY = e.clientY;
   });
 
   window.addEventListener('mouseup', () => {
     isDragging = false;
-    const snappedAngle = Math.round(cube.rotation.y / (Math.PI / 2)) * (Math.PI / 2);
-    rotationY = snappedAngle;
-    cube.rotation.y = rotationY;
-    currentFaceIndex = getFrontFaceIndex(rotationY);
-    updateLink(currentFaceIndex);
+    snapRotation();
   });
 
   window.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     const deltaX = e.clientX - startX;
-    const rotationDelta = deltaX * 0.01;
-    rotationY += rotationDelta;
-    cube.rotation.y = rotationY;
+    const deltaY = e.clientY - startY;
+
+    targetRotation.y += deltaX * 0.005;
+    targetRotation.x += deltaY * 0.005;
+
     startX = e.clientX;
+    startY = e.clientY;
+  });
+
+  // Touch controls
+  window.addEventListener('touchstart', (e) => {
+    isDragging = true;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const deltaX = e.touches[0].clientX - startX;
+    const deltaY = e.touches[0].clientY - startY;
+
+    targetRotation.y += deltaX * 0.005;
+    targetRotation.x += deltaY * 0.005;
+
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  window.addEventListener('touchend', () => {
+    isDragging = false;
+    snapRotation();
   });
 
   window.addEventListener('resize', () => {
@@ -71,22 +118,44 @@ function init() {
   });
 }
 
-function getFrontFaceIndex(rotationY) {
-  const step = Math.round(rotationY / (Math.PI / 2));
-  const index = ((step % 4) + 4) % 4; // Normalize
-  return [4, 0, 5, 1][index]; // Map Y-rotated front to face indices
+function snapRotation() {
+  const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
+  const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
+  targetRotation.x = snappedX;
+  targetRotation.y = snappedY;
+
+  currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
+  updateLink(currentFaceIndex);
+}
+
+function getFrontFaceIndex(rotX, rotY) {
+  const x = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
+  const y = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4;
+
+  // Face order: 
+  // 0: right, 1: left, 2: top, 3: bottom, 4: front, 5: back
+  if (x === 1) return 2; // top
+  if (x === 3) return 3; // bottom
+  if (y === 0) return 4; // front
+  if (y === 1) return 0; // right
+  if (y === 2) return 5; // back
+  if (y === 3) return 1; // left
 }
 
 function updateLink(faceIndex) {
   const project = shuffled[faceIndex];
   const linkEl = document.getElementById('link-btn');
-  if (project) {
+  if (project && linkEl) {
     linkEl.href = project.link;
     linkEl.textContent = `View Project ${faceIndex + 1}`;
   }
 }
 
+
+
 function animate() {
   requestAnimationFrame(animate);
+  cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
+  cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
   renderer.render(scene, camera);
 }
