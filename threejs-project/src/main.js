@@ -12,8 +12,8 @@ let easing = 0.1;
 const loader = new THREE.TextureLoader();
 
 const projects = [
-  { image: '/DD.jpg', link: 'https://github.com/you/project1' },
-  { image: 'https://images.unsplash.com/photo-1728044849221-851cf8587fac?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDF8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', link: '#' },
+  { image: '/DD.jpg', link: 'https://github.com/you/project1', name: 'Daredevil Clip Discord Bot' },
+  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project3' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project3' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project4' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project5' },
@@ -147,7 +147,7 @@ function updateLink(faceIndex) {
   const linkEl = document.getElementById('link-btn');
   if (project && linkEl) {
     linkEl.href = project.link;
-    linkEl.textContent = `View Project ${faceIndex + 1}`;
+    linkEl.textContent = `View Project: ${project.name}`;
   }
 }
 
