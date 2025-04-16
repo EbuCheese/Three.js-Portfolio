@@ -11,9 +11,11 @@ let easing = 0.1;
 
 const loader = new THREE.TextureLoader();
 
+
+
 const projects = [
-  { image: '/DD.jpg', link: 'https://github.com/you/project1', name: 'Daredevil Clip Discord Bot' },
-  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project3' },
+  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
+  { image: '/dogmeditate.jpg', link: 'https://github.com/you/project2' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project3' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project4' },
   { image: '/dogmeditate.jpg', link: 'https://github.com/you/project5' },
@@ -36,12 +38,22 @@ async function createMaterial(imagePath) {
   return new THREE.MeshBasicMaterial({ map: texture });
 }
 
+const video = document.getElementById('cubeVideo');
+video.play().catch(e => console.warn('Autoplay failed:', e));
+const videoTexture = new THREE.VideoTexture(video);
+videoTexture.colorSpace = THREE.SRGBColorSpace;
+videoTexture.minFilter = THREE.LinearFilter;
+videoTexture.magFilter = THREE.LinearFilter;
+videoTexture.generateMipmaps = false;
+
+const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
 
 
 let materials = [];
 Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) => {
   materials = loadedMaterials;
-  cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materials);
+  materials[0] = videoMaterial; // change later
+  cube = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1, 1.8), materials);
   scene.add(cube);
 });
 
@@ -55,11 +67,10 @@ function init() {
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio); // important!
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping; // Prevent color distortion
   document.body.appendChild(renderer.domElement);
-
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
 
   updateLink(0); // Start with front face (index 4 in Three.js)
 
