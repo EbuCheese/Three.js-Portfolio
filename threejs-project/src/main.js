@@ -16,12 +16,12 @@ const mouse = new THREE.Vector2();
 
 
 const projects = [
-  { image: '/dogmeditate.jpg', video: '', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
-  { image: '/fish.jpg', video: '', link: 'https://github.com/you/project2' },
-  { image: '/catcreeper.jpg', video: '', link: 'https://github.com/you/project3' },
-  { image: '/DD.jpg', video: '', link: 'https://github.com/you/project4' },
-  { image: '/lego-sleep.jpg', video: '', link: 'https://github.com/you/project5' },
-  { image: '/lime.jpg', video: '', link: 'https://github.com/you/project6' }
+  { image: '/dogmeditate.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
+  { image: '/fish.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project2' },
+  { image: '/catcreeper.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project3' },
+  { image: '/DD.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project4' },
+  { image: '/lego-sleep.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project5' },
+  { image: '/lime.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project6' }
 ];
 
 // Shuffle and assign 6 random projects
@@ -41,7 +41,7 @@ async function createMaterial(imagePath) {
 }
 
 const video = document.createElement('video');
-video.src = '/video.mp4'; // Replace with your actual video path
+video.src = '/testvid.mp4'; // Replace with your actual video path
 video.loop = true;
 video.muted = true;
 video.playsInline = true;
@@ -211,17 +211,43 @@ function showPopupPlane(faceIndex) {
     return;
   }
 
-  const project = shuffled[faceIndex];
   const popupWidth = 1.8;
   const popupHeight = 1;
-
   const geometry = new THREE.PlaneGeometry(popupWidth, popupHeight);
-  const material = faceIndex === 0 ? videoMaterial : new THREE.MeshBasicMaterial({ map: materials[faceIndex].map });
+
+  // create video material
+  let material;
+  const project = shuffled[faceIndex];
+
+  if (project.video) {
+    const popupVideo = document.createElement('video');
+    popupVideo.src = project.video;
+    popupVideo.loop = true;
+    popupVideo.muted = true;
+    popupVideo.playsInline = true;
+    popupVideo.autoplay = true;
+    popupVideo.crossOrigin = 'anonymous';
+    popupVideo.load();
+    popupVideo.play().catch(e => console.warn('Autoplay failed:', e));
+
+    const popupVideoTexture = new THREE.VideoTexture(popupVideo);
+    popupVideoTexture.colorSpace = THREE.SRGBColorSpace;
+    popupVideoTexture.minFilter = THREE.LinearFilter;
+    popupVideoTexture.magFilter = THREE.LinearFilter;
+    popupVideoTexture.generateMipmaps = false;
+
+    material = new THREE.MeshBasicMaterial({ map: popupVideoTexture });
+  } else {
+    material = new THREE.MeshBasicMaterial({ map: materials[faceIndex].map });
+  }
+
 
   popupPlane = new THREE.Mesh(geometry, material);
 
+
   // Position popup in front of the clicked face
   const offset = 0.61; // slightly in front of cube
+  
   const positions = [
     [offset, 0, 0],     // right
     [-offset, 0, 0],    // left
@@ -231,8 +257,8 @@ function showPopupPlane(faceIndex) {
     [0, 0, -offset]     // back
   ];
   const rotation = [
-    [0, -Math.PI / 2, 0],
     [0, Math.PI / 2, 0],
+    [0, -Math.PI / 2, 0],
     [-Math.PI / 2, 0, 0],
     [Math.PI / 2, 0, 0],
     [0, 0, 0],
