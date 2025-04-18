@@ -1,20 +1,23 @@
 import * as THREE from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { gsap } from 'gsap';
 
-let scene, camera, renderer, cube;
+let scene, camera, renderer, composer, cube;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
 let currentFaceIndex = 0;
-
 let targetRotation = { x: 0, y: 0 };
 let easing = 0.1;
 
 const loader = new THREE.TextureLoader();
-
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-
+// project data array
 const projects = [
   { image: '/dogmeditate.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
   { image: '/fish.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project2' },
@@ -37,8 +40,16 @@ async function createMaterial(imagePath) {
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
   texture.needsUpdate = true;
 
-  return new THREE.MeshBasicMaterial({ map: texture });
+  // texture mapping
+  return new THREE.MeshStandardMaterial({
+    map: texture,
+    metalness: 1,
+    roughness: 0.15,
+    envMapIntensity: 1.2,
+  });
 }
+
+
 
 const video = document.createElement('video');
 video.src = '/testvid.mp4'; // Replace with your actual video path
@@ -60,6 +71,14 @@ const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
 
 init();
 
+const rgbeLoader = new RGBELoader();
+rgbeLoader.load('/test.hdr', (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = texture;  // for reflections
+  scene.background = texture;   // optional, looks cool
+});
+
+
 let materials = [];
 Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) => {
   materials = loadedMaterials;
@@ -77,16 +96,47 @@ function init() {
   camera.position.z = 2.5;
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
+
+  renderer.physicallyCorrectLights = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+
+  // add light if needed
+  // const light = new THREE.DirectionalLight(0xffffff, 0.6);
+  // light.position.set(5, 5, 5);
+  // scene.add(light);
+
+  // const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  // scene.add(ambient);
+
+
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio); // important!
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping; // Prevent color distortion
   document.body.appendChild(renderer.domElement);
 
-  // updateLink(0); // Start with front face (index 4 in Three.js)
+
+  // === POSTPROCESSING ===
+  const renderPass = new RenderPass(scene, camera);
+
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.5, // strength
+    0.4, // radius
+    2 // threshold
+  );
+
+  composer = new EffectComposer(renderer);
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
+
+
+
+  // EVENTS //
 
   // Click Event
-  window.addEventListener('click', onClick);
+  window.addEventListener('dblclick', onDoubleClick);
 
   // Mouse controls
   window.addEventListener('mousedown', (e) => {
@@ -185,7 +235,7 @@ function updateLink(faceIndex) {
 
 // Click Func
 
-function onClick(event) {
+function onDoubleClick(event) {
   if (isDragging) return; // don't trigger on drag
 
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -265,16 +315,41 @@ function showPopupPlane(faceIndex) {
     [0, Math.PI, 0],
   ];
 
+  // Start at scale 0
+  popupPlane.scale.set(0, 0, 0);
+
   popupPlane.position.set(...positions[faceIndex]);
   popupPlane.rotation.set(...rotation[faceIndex]);
 
   cube.add(popupPlane);
+
+  // animate the plane popup
+  gsap.to(popupPlane.scale, {
+    x: 1,
+    y: 1,
+    z: 1,
+    duration: 0.6,
+    ease: "back.out(1.7)"
+  });
+
+  
 }
 
-
+const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
+  // floating cube logic
+  const time = clock.getElapsedTime();
+  cube.position.y = Math.sin(time * 1) * 0.03;
+  // smooth rotation logic 
   cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
   cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
-  renderer.render(scene, camera);
+  
+  // render
+  // renderer.render(scene, camera);
+  composer.render();
+  // boost hdr realism
+  renderer.physicallyCorrectLights = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
 }
