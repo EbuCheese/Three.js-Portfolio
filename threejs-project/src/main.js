@@ -72,7 +72,7 @@ const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
 init();
 
 const rgbeLoader = new RGBELoader();
-rgbeLoader.load('/test.hdr', (texture) => {
+rgbeLoader.load('/test2.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;  // for reflections
   scene.background = texture;   // optional, looks cool
@@ -84,6 +84,42 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
   materials = loadedMaterials;
   // Create the base cube
   cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materials);
+
+  // Add glowing edges using a slightly bigger outline cube with emissive material
+  const outlineShaderMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      glowColor: { value: new THREE.Color(0x00ffff) },
+      glowIntensity: { value: 4 }, // Control the intensity of the glow
+    },
+    vertexShader: `
+      varying vec3 vPosition;
+      void main() {
+        vPosition = position; // Capture the position for later use
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 glowColor;
+      uniform float glowIntensity;
+      varying vec3 vPosition;
+  
+      void main() {
+        // Apply glow effect equally across all edges
+        float intensity = glowIntensity / length(vPosition); // More glow for edges further from the center
+        gl_FragColor = vec4(glowColor * intensity, 1.03);
+      }
+    `,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false
+  });
+  
+  // Create outline mesh
+  const outlineMesh = new THREE.Mesh(cube.geometry.clone(), outlineShaderMaterial);
+  outlineMesh.scale.multiplyScalar(1.02); // Scale slightly to make outline glow bigger
+  cube.add(outlineMesh);
+
   scene.add(cube);
   updateLink(0); // Start with front face (index 4 in Three.js)
   animate();
@@ -100,6 +136,7 @@ function init() {
   renderer.physicallyCorrectLights = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
+
 
   // add light if needed
   // const light = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -122,16 +159,14 @@ function init() {
 
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.5, // strength
+    0.2, // strength
     0.4, // radius
-    2 // threshold
+    0.1 // threshold
   );
 
   composer = new EffectComposer(renderer);
   composer.addPass(renderPass);
   composer.addPass(bloomPass);
-
-
 
   // EVENTS //
 
@@ -363,9 +398,45 @@ function showPopupPlane(faceIndex) {
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
-  // floating cube logic
-  const time = clock.getElapsedTime();
-  cube.position.y = Math.sin(time * 1) * 0.03;
+  
+  
+
+const time = clock.getElapsedTime();
+const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
+const pauseDuration = 0.25;       // Pause at center
+const cycleDuration = (phaseDuration + pauseDuration) * 2; // Total cycle time
+
+const t = time % cycleDuration;
+const amplitude = 0.03;
+
+// Helper: clean sine wave cycle
+function sineCycle(t) {
+  return Math.sin(t * Math.PI * 2); // Starts and ends at 0
+}
+
+// Reset positions
+cube.position.x = 0;
+cube.position.y = 0;
+
+if (t < phaseDuration) {
+  // Phase 1: up-down-up (Y axis)
+  const progress = t / phaseDuration;
+  cube.position.y = sineCycle(progress) * amplitude;
+} else if (t < phaseDuration + pauseDuration) {
+  // Phase 2: pause in center (Y axis)
+  cube.position.y = 0;
+} else if (t < 2 * phaseDuration + pauseDuration) {
+  // Phase 3: left-right-left (X axis)
+  const progress = (t - phaseDuration - pauseDuration) / phaseDuration;
+  cube.position.x = sineCycle(progress) * amplitude;
+} else {
+  // Phase 4: pause in center (X axis)
+  cube.position.x = 0;
+}
+
+  
+  
+
   // smooth rotation logic 
   cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
   cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
