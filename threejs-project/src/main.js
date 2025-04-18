@@ -256,8 +256,24 @@ let popupPlane;
 
 function showPopupPlane(faceIndex) {
   if (popupPlane) {
-    cube.remove(popupPlane);
-    popupPlane = null;
+    // Animate scale down and fade out before removing
+    gsap.to(popupPlane.scale, {
+      x: 0,
+      y: 0,
+      z: 0,
+      duration: 0.4,
+      ease: "back.in(1.7)"
+    });
+    gsap.to(popupPlane.material, {
+      opacity: 0,
+      duration: 0.3,
+      ease: "power2.in",
+      onComplete: () => {
+        cube.remove(popupPlane);
+        popupPlane = null;
+      }
+    });
+  
     return;
   }
 
@@ -290,6 +306,9 @@ function showPopupPlane(faceIndex) {
   } else {
     material = new THREE.MeshBasicMaterial({ map: materials[faceIndex].map });
   }
+
+  material.transparent = true;
+  material.opacity = 0;
 
 
   popupPlane = new THREE.Mesh(geometry, material);
@@ -330,6 +349,12 @@ function showPopupPlane(faceIndex) {
     z: 1,
     duration: 0.6,
     ease: "back.out(1.7)"
+  });
+
+  gsap.to(material, {
+    opacity: 1,
+    duration: 0.5,
+    ease: "power2.out"
   });
 
   
