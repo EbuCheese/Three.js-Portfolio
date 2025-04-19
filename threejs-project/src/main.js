@@ -2,15 +2,17 @@ import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { gsap } from 'gsap';
+
 
 let scene, camera, renderer, composer, cube;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
 let currentFaceIndex = 0;
-let targetRotation = { x: 0, y: 0 };
+let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
 
 const loader = new THREE.TextureLoader();
@@ -43,39 +45,36 @@ async function createMaterial(imagePath) {
   // texture mapping
   return new THREE.MeshStandardMaterial({
     map: texture,
-    metalness: 1,
+    metalness: 0.95,
     roughness: 0.15,
     envMapIntensity: 1.2,
   });
 }
 
-
-
-const video = document.createElement('video');
-video.src = '/testvid.mp4'; // Replace with your actual video path
-video.loop = true;
-video.muted = true;
-video.playsInline = true;
-video.autoplay = true;
-video.crossOrigin = 'anonymous';
-video.load();
-video.play().catch(e => console.warn('Autoplay failed:', e));
-
-const videoTexture = new THREE.VideoTexture(video);
-videoTexture.colorSpace = THREE.SRGBColorSpace;
-videoTexture.minFilter = THREE.LinearFilter;
-videoTexture.magFilter = THREE.LinearFilter;
-videoTexture.generateMipmaps = false;
-
-const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
-
 init();
 
+// Gradient BG
+function generateRadialGradient() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  const gradient = ctx.createRadialGradient(256, 256, 50, 256, 256, 256);
+  gradient.addColorStop(0, '#2200aa');
+  gradient.addColorStop(1, '#000000');
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+// set the texture for env and bg
 const rgbeLoader = new RGBELoader();
 rgbeLoader.load('/test2.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
-  scene.environment = texture;  // for reflections
-  scene.background = texture;   // optional, looks cool
+  scene.environment = texture; 
+  // scene.background = texture; 
 });
 
 
@@ -120,6 +119,13 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
   outlineMesh.scale.multiplyScalar(1.02); // Scale slightly to make outline glow bigger
   cube.add(outlineMesh);
 
+  // BG FX
+
+  const gradientBG = new THREE.CanvasTexture(generateRadialGradient());
+  scene.background = gradientBG;
+
+  
+  
   scene.add(cube);
   updateLink(0); // Start with front face (index 4 in Three.js)
   animate();
@@ -160,7 +166,7 @@ function init() {
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     0.2, // strength
-    0.4, // radius
+    0.2, // radius
     0.1 // threshold
   );
 
@@ -228,15 +234,15 @@ function init() {
   });
 }
 
-function snapRotation() {
-  const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
-  const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
-  targetRotation.x = snappedX;
-  targetRotation.y = snappedY;
+// function snapRotation() {
+//   const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
+//   const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
+//   targetRotation.x = snappedX;
+//   targetRotation.y = snappedY;
 
-  currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
-  updateLink(currentFaceIndex);
-}
+//   currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
+//   updateLink(currentFaceIndex);
+// }
 
 function getFrontFaceIndex(rotX, rotY) {
   const x = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
@@ -435,14 +441,11 @@ if (t < phaseDuration) {
 }
 
   
-  
-
   // smooth rotation logic 
   cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
   cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
   
   // render
-  // renderer.render(scene, camera);
   composer.render();
   // boost hdr realism
   renderer.physicallyCorrectLights = true;
