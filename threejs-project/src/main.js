@@ -51,7 +51,7 @@ async function createMaterial(imagePath) {
   });
 }
 
-init();
+
 
 // Gradient BG
 function generateRadialGradient() {
@@ -69,31 +69,46 @@ function generateRadialGradient() {
   return canvas;
 }
 
-// set the texture for env and bg
-const rgbeLoader = new RGBELoader();
-rgbeLoader.load('/test2.hdr', (texture) => {
-  texture.mapping = THREE.EquirectangularReflectionMapping;
-  scene.environment = texture; 
-  scene.background = texture; 
-});
 
+init();
+
+// Helper to load HDR as a Promise
+function loadHDR(path) {
+  return new Promise((resolve) => {
+    const rgbeLoader = new RGBELoader();
+    rgbeLoader.load(path, (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      resolve(texture);
+    });
+  });
+}
 
 let materials = [];
-Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) => {
+
+// Load everything before starting the scene
+Promise.all([
+  loadHDR('/test2.hdr'),
+  Promise.all(shuffled.map(p => createMaterial(p.image)))
+]).then(([hdrTexture, loadedMaterials]) => {
+  // Set the HDR environment and background
+  scene.environment = hdrTexture;
+  scene.background = hdrTexture;
+
   materials = loadedMaterials;
-  // Create the base cube
+
+  // Create the cube with loaded materials
   cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materials);
 
-  // Add glowing edges using a slightly bigger outline cube with emissive material
+  // Glowing outline
   const outlineShaderMaterial = new THREE.ShaderMaterial({
     uniforms: {
       glowColor: { value: new THREE.Color(0x00ffff) },
-      glowIntensity: { value: 4 }, // Control the intensity of the glow
+      glowIntensity: { value: 4 },
     },
     vertexShader: `
       varying vec3 vPosition;
       void main() {
-        vPosition = position; // Capture the position for later use
+        vPosition = position;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -103,8 +118,7 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
       varying vec3 vPosition;
   
       void main() {
-        // Apply glow effect equally across all edges
-        float intensity = glowIntensity / length(vPosition); // More glow for edges further from the center
+        float intensity = glowIntensity / length(vPosition);
         gl_FragColor = vec4(glowColor * intensity, 1.03);
       }
     `,
@@ -113,18 +127,12 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
     transparent: true,
     depthWrite: false
   });
-  
-  // Create outline mesh
+
   const outlineMesh = new THREE.Mesh(cube.geometry.clone(), outlineShaderMaterial);
-  outlineMesh.scale.multiplyScalar(1.02); // Scale slightly to make outline glow bigger
+  outlineMesh.scale.multiplyScalar(1.02);
   cube.add(outlineMesh);
 
-  // BG FX
-
-  // const gradientBG = new THREE.CanvasTexture(generateRadialGradient());
-  // scene.background = gradientBG;
-
-  
+  // Set materials initially invisible
   materials.forEach(mat => {
     mat.transparent = true;
     mat.opacity = 0;
@@ -132,6 +140,20 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
 
   scene.add(cube);
 
+  // Optional: Smooth exposure fade-in for background
+  const fade = { val: 0 };
+  renderer.toneMappingExposure = 0;
+  gsap.to(fade, {
+    val: 1.2,
+    duration: 1.2,
+    ease: "power2.out",
+    delay: 0.1,
+    onUpdate: () => {
+      renderer.toneMappingExposure = fade.val;
+    }
+  });
+
+  // Fade in cube materials
   materials.forEach(mat => {
     gsap.to(mat, {
       opacity: 1,
@@ -141,11 +163,13 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
     });
   });
 
-  updateLink(0); // Start with front face (index 4 in Three.js)
-  
-  // Finished Loading Logic
+  updateLink(0); // Start with front face
+
+  // Fade out loading screen
   document.getElementById('loading-screen').classList.add('loaded');
+
   animate();
+
 });
 
 
@@ -173,7 +197,6 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio); // important!
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.NoToneMapping; // Prevent color distortion
   document.body.appendChild(renderer.domElement);
 
 
@@ -419,53 +442,49 @@ function showPopupPlane(faceIndex) {
 }
 
 const clock = new THREE.Clock();
+
 function animate() {
   requestAnimationFrame(animate);
-  
-  
+  if (!cube) return;
 
-const time = clock.getElapsedTime();
-const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
-const pauseDuration = 0.25;       // Pause at center
-const cycleDuration = (phaseDuration + pauseDuration) * 2; // Total cycle time
+  const time = clock.getElapsedTime();
+  const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
+  const pauseDuration = 0.25;       // Pause at center
+  const cycleDuration = (phaseDuration + pauseDuration) * 2; // Total cycle time
 
-const t = time % cycleDuration;
-const amplitude = 0.03;
+  const t = time % cycleDuration;
+  const amplitude = 0.03;
 
-// Helper: clean sine wave cycle
-function sineCycle(t) {
-  return Math.sin(t * Math.PI * 2); // Starts and ends at 0
-}
+  // Helper: clean sine wave cycle
+  function sineCycle(t) {
+    return Math.sin(t * Math.PI * 2); // Starts and ends at 0
+  }
 
-// Reset positions
-cube.position.x = 0;
-cube.position.y = 0;
-
-if (t < phaseDuration) {
-  // Phase 1: up-down-up (Y axis)
-  const progress = t / phaseDuration;
-  cube.position.y = sineCycle(progress) * amplitude;
-} else if (t < phaseDuration + pauseDuration) {
-  // Phase 2: pause in center (Y axis)
-  cube.position.y = 0;
-} else if (t < 2 * phaseDuration + pauseDuration) {
-  // Phase 3: left-right-left (X axis)
-  const progress = (t - phaseDuration - pauseDuration) / phaseDuration;
-  cube.position.x = sineCycle(progress) * amplitude;
-} else {
-  // Phase 4: pause in center (X axis)
+  // Reset positions
   cube.position.x = 0;
-}
+  cube.position.y = 0;
 
-  
-  // smooth rotation logic 
-  cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
-  cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
-  
-  // render
-  composer.render();
-  // boost hdr realism
-  renderer.physicallyCorrectLights = true;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  if (t < phaseDuration) {
+    // Phase 1: up-down-up (Y axis)
+    const progress = t / phaseDuration;
+    cube.position.y = sineCycle(progress) * amplitude;
+  } else if (t < phaseDuration + pauseDuration) {
+    // Phase 2: pause in center (Y axis)
+    cube.position.y = 0;
+  } else if (t < 2 * phaseDuration + pauseDuration) {
+    // Phase 3: left-right-left (X axis)
+    const progress = (t - phaseDuration - pauseDuration) / phaseDuration;
+    cube.position.x = sineCycle(progress) * amplitude;
+  } else {
+    // Phase 4: pause in center (X axis)
+    cube.position.x = 0;
+  }
+
+    
+    // smooth rotation logic 
+    cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
+    cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
+    
+    // render
+    composer.render();
 }
