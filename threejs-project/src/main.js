@@ -168,6 +168,9 @@ Promise.all([
   // Fade out loading screen
   document.getElementById('loading-screen').classList.add('loaded');
 
+  cube.rotation.x = targetRotation.x;
+  cube.rotation.y = targetRotation.y;
+
   animate();
 
 });
