@@ -74,7 +74,7 @@ const rgbeLoader = new RGBELoader();
 rgbeLoader.load('/test2.hdr', (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture; 
-  // scene.background = texture; 
+  scene.background = texture; 
 });
 
 
@@ -121,13 +121,30 @@ Promise.all(shuffled.map(p => createMaterial(p.image))).then((loadedMaterials) =
 
   // BG FX
 
-  const gradientBG = new THREE.CanvasTexture(generateRadialGradient());
-  scene.background = gradientBG;
+  // const gradientBG = new THREE.CanvasTexture(generateRadialGradient());
+  // scene.background = gradientBG;
 
   
-  
+  materials.forEach(mat => {
+    mat.transparent = true;
+    mat.opacity = 0;
+  });
+
   scene.add(cube);
+
+  materials.forEach(mat => {
+    gsap.to(mat, {
+      opacity: 1,
+      duration: 1.2,
+      ease: "power2.out",
+      delay: 0.1
+    });
+  });
+
   updateLink(0); // Start with front face (index 4 in Three.js)
+  
+  // Finished Loading Logic
+  document.getElementById('loading-screen').classList.add('loaded');
   animate();
 });
 

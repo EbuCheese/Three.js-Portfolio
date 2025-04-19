@@ -48,6 +48,27 @@
   padding-bottom: 10px;
 }
 
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  background: #0f0f2e; /* Match your scene background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: Poppins, sans-serif;
+  font-size: 2rem;
+  color: white;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+  pointer-events: all;
+}
+
+#loading-screen.loaded {
+  opacity: 0;
+  pointer-events: none;
+}
+
 @keyframes dragBounce {
   0% { transform: translateY(0); opacity: 1; }
   50% { transform: translateY(6px); opacity: 0.8; }
@@ -69,6 +90,10 @@
 <div id="scroll-hint">
   <svg id="drag-hand" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><path d="M128,92a20,20,0,0,0-40,0v28" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M168,108V92a20,20,0,0,0-40,0v28" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><path d="M88,152V120H68a20,20,0,0,0-20,20v12a80,80,0,0,0,160,0V108a20,20,0,0,0-40,0v12" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg>
   <span>Drag to rotate the cube</span>
+</div>
+
+<div id="loading-screen">
+  <span>Loading...</span>
 </div>
 
 
