@@ -2,18 +2,19 @@ import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { gsap } from 'gsap';
 
 
 let scene, camera, renderer, composer, cube;
+let isPopupActive = false;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
 let currentFaceIndex = 0;
 let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
+let bloomPass;
 
 const loader = new THREE.TextureLoader();
 const raycaster = new THREE.Raycaster();
@@ -139,7 +140,7 @@ Promise.all([
   });
 
   scene.add(cube);
-
+  
   // Optional: Smooth exposure fade-in for background
   const fade = { val: 0 };
   renderer.toneMappingExposure = 0;
@@ -175,11 +176,12 @@ Promise.all([
 
 });
 
-
 function init() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.z = 2.5;
+  camera.layers.enable(0);
+  camera.layers.enable(1);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
 
@@ -337,7 +339,6 @@ function onDoubleClick(event) {
 // Popup Plane Func
 
 let popupPlane;
-
 function showPopupPlane(faceIndex) {
   if (popupPlane) {
     // Animate scale down and fade out before removing
@@ -355,6 +356,8 @@ function showPopupPlane(faceIndex) {
       onComplete: () => {
         cube.remove(popupPlane);
         popupPlane = null;
+        isPopupActive = false; // mark popup as inactive
+        toggleBloomEffect(); // toggle bloom
       }
     });
   
@@ -387,16 +390,26 @@ function showPopupPlane(faceIndex) {
     popupVideoTexture.generateMipmaps = false;
 
     material = new THREE.MeshBasicMaterial({ map: popupVideoTexture });
+  
   } else {
-    material = new THREE.MeshBasicMaterial({ map: materials[faceIndex].map });
+    material = new THREE.MeshBasicMaterial({
+      map: materials[faceIndex].map,
+      transparent: true,
+      opacity: 0,
+      toneMapped: false
+    });
   }
 
   material.transparent = true;
   material.opacity = 0;
+  material.toneMapped = false;
 
 
   popupPlane = new THREE.Mesh(geometry, material);
+  popupPlane.layers.set(1);
 
+  popupPlane.material.depthWrite = false;  // Disable depth writing for the popup to ensure it renders above everything else
+  popupPlane.material.depthTest = false;
 
   // Position popup in front of the clicked face
   const offset = 0.61; // slightly in front of cube
@@ -432,20 +445,34 @@ function showPopupPlane(faceIndex) {
     y: 1,
     z: 1,
     duration: 0.6,
-    ease: "back.out(1.7)"
+    ease: "back.out(1.7)",
+    onComplete: () => {
+      isPopupActive = true;
+      toggleBloomEffect(); // Call after animation is complete
+    }
   });
 
   gsap.to(material, {
     opacity: 1,
     duration: 0.5,
     ease: "power2.out"
-  });
-
-  
+  });  
 }
 
-const clock = new THREE.Clock();
+function toggleBloomEffect() {
+  if (isPopupActive) {
+    if (bloomPass) {
+      bloomPass.enabled = false;  // Disable bloom effect when popup is active
+    }
+  } else {
+    if (bloomPass) {
+      bloomPass.enabled = true;   // Re-enable bloom effect when popup is inactive
+    }
+  }
+}
 
+
+const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   if (!cube) return;
@@ -488,6 +515,8 @@ function animate() {
     cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
     cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
     
-    // render
+    // render 
     composer.render();
+
+    
 }
