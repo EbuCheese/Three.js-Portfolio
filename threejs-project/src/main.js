@@ -208,7 +208,7 @@ function init() {
   // === POSTPROCESSING ===
   const renderPass = new RenderPass(scene, camera);
 
-  const bloomPass = new UnrealBloomPass(
+    bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     0.2, // strength
     0.2, // radius
@@ -341,6 +341,7 @@ function onDoubleClick(event) {
 let popupPlane;
 function showPopupPlane(faceIndex) {
   if (popupPlane) {
+    bloomPass.strength = 0.2;
     // Animate scale down and fade out before removing
     gsap.to(popupPlane.scale, {
       x: 0,
@@ -357,7 +358,6 @@ function showPopupPlane(faceIndex) {
         cube.remove(popupPlane);
         popupPlane = null;
         isPopupActive = false; // mark popup as inactive
-        toggleBloomEffect(); // toggle bloom
       }
     });
   
@@ -406,6 +406,7 @@ function showPopupPlane(faceIndex) {
 
 
   popupPlane = new THREE.Mesh(geometry, material);
+  bloomPass.strength = 0.12;
   popupPlane.layers.set(1);
 
   popupPlane.material.depthWrite = false;  // Disable depth writing for the popup to ensure it renders above everything else
@@ -448,7 +449,6 @@ function showPopupPlane(faceIndex) {
     ease: "back.out(1.7)",
     onComplete: () => {
       isPopupActive = true;
-      toggleBloomEffect(); // Call after animation is complete
     }
   });
 
@@ -458,19 +458,6 @@ function showPopupPlane(faceIndex) {
     ease: "power2.out"
   });  
 }
-
-function toggleBloomEffect() {
-  if (isPopupActive) {
-    if (bloomPass) {
-      bloomPass.enabled = false;  // Disable bloom effect when popup is active
-    }
-  } else {
-    if (bloomPass) {
-      bloomPass.enabled = true;   // Re-enable bloom effect when popup is inactive
-    }
-  }
-}
-
 
 const clock = new THREE.Clock();
 function animate() {
