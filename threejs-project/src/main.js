@@ -183,7 +183,7 @@ function init() {
   camera.layers.enable(0);
   camera.layers.enable(1);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 
   renderer.physicallyCorrectLights = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -338,59 +338,81 @@ function onDoubleClick(event) {
 
 // Popup Plane Func
 
-let popupPlane;
+let popupPlane, borderPlane, shadowPlane;
+
 function showPopupPlane(faceIndex) {
   if (popupPlane) {
     bloomPass.strength = 0.2;
-    // Animate scale down and fade out before removing
-    gsap.to(popupPlane.scale, {
+
+    gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
       x: 0,
       y: 0,
       z: 0,
       duration: 0.4,
       ease: "back.in(1.7)"
     });
+
     gsap.to(popupPlane.material, {
       opacity: 0,
       duration: 0.3,
       ease: "power2.in",
       onComplete: () => {
         cube.remove(popupPlane);
+        cube.remove(borderPlane);
+        cube.remove(shadowPlane);
         popupPlane = null;
-        isPopupActive = false; // mark popup as inactive
+        borderPlane = null;
+        shadowPlane = null;
+        isPopupActive = false;
       }
     });
-  
+
     return;
   }
 
-  const popupWidth = 1.8;
+  const popupWidth = 2;
   const popupHeight = 1;
-  const geometry = new THREE.PlaneGeometry(popupWidth, popupHeight);
+  const offset = 0.61;
 
-  // create video material
-  let material;
+  const positions = [
+    [offset, 0, 0], [-offset, 0, 0],
+    [0, offset, 0], [0, -offset, 0],
+    [0, 0, offset], [0, 0, -offset]
+  ];
+  const rotation = [
+    [0, Math.PI / 2, 0], [0, -Math.PI / 2, 0],
+    [-Math.PI / 2, 0, 0], [Math.PI / 2, 0, 0],
+    [0, 0, 0], [0, Math.PI, 0]
+  ];
+
+  const pos = positions[faceIndex];
+  const rot = rotation[faceIndex];
+
   const project = shuffled[faceIndex];
+  let material;
 
   if (project.video) {
-    const popupVideo = document.createElement('video');
-    popupVideo.src = project.video;
-    popupVideo.loop = true;
-    popupVideo.muted = true;
-    popupVideo.playsInline = true;
-    popupVideo.autoplay = true;
-    popupVideo.crossOrigin = 'anonymous';
-    popupVideo.load();
-    popupVideo.play().catch(e => console.warn('Autoplay failed:', e));
+    const video = document.createElement('video');
+    video.src = project.video;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.crossOrigin = 'anonymous';
+    video.load();
+    video.play().catch(e => console.warn("Video failed:", e));
 
-    const popupVideoTexture = new THREE.VideoTexture(popupVideo);
-    popupVideoTexture.colorSpace = THREE.SRGBColorSpace;
-    popupVideoTexture.minFilter = THREE.LinearFilter;
-    popupVideoTexture.magFilter = THREE.LinearFilter;
-    popupVideoTexture.generateMipmaps = false;
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
 
-    material = new THREE.MeshBasicMaterial({ map: popupVideoTexture });
-  
+    material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 0
+    });
   } else {
     material = new THREE.MeshBasicMaterial({
       map: materials[faceIndex].map,
@@ -400,48 +422,57 @@ function showPopupPlane(faceIndex) {
     });
   }
 
-  material.transparent = true;
-  material.opacity = 0;
-  material.toneMapped = false;
-
-
-  popupPlane = new THREE.Mesh(geometry, material);
-  bloomPass.strength = 0.12;
-  popupPlane.layers.set(1);
-
-  popupPlane.material.depthWrite = false;  // Disable depth writing for the popup to ensure it renders above everything else
+  // --- POPUP PLANE
+  popupPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(popupWidth, popupHeight),
+    material
+  );
+  popupPlane.position.set(...pos);
+  popupPlane.rotation.set(...rot);
+  popupPlane.scale.set(0, 0, 0);
+  popupPlane.renderOrder = 999;
+  popupPlane.material.depthWrite = false;
   popupPlane.material.depthTest = false;
 
-  // Position popup in front of the clicked face
-  const offset = 0.61; // slightly in front of cube
-  
-  const positions = [
-    [offset, 0, 0],     // right
-    [-offset, 0, 0],    // left
-    [0, offset, 0],     // top
-    [0, -offset, 0],    // bottom
-    [0, 0, offset],     // front
-    [0, 0, -offset]     // back
-  ];
-  const rotation = [
-    [0, Math.PI / 2, 0],
-    [0, -Math.PI / 2, 0],
-    [-Math.PI / 2, 0, 0],
-    [Math.PI / 2, 0, 0],
-    [0, 0, 0],
-    [0, Math.PI, 0],
-  ];
+ 
+  const borderThickness = 0.04; // more visible, adjust to taste
+  borderPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(popupWidth + borderThickness, popupHeight + borderThickness),
+    new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      toneMapped: false,
+      depthTest: false 
+    })
+  );
+  borderPlane.position.set(...pos);
+  borderPlane.rotation.set(...rot);
+  borderPlane.scale.set(0, 0, 0);
+  borderPlane.position.z -= 0.007; // just behind popupPlane
+  borderPlane.renderOrder = 998;
 
-  // Start at scale 0
-  popupPlane.scale.set(0, 0, 0);
 
-  popupPlane.position.set(...positions[faceIndex]);
-  popupPlane.rotation.set(...rotation[faceIndex]);
+  // --- SHADOW PLANE 
+  shadowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(popupWidth + 0.08, popupHeight + 0.08),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.35 
+    })
+  );
+  shadowPlane.position.set(...pos);
+  shadowPlane.rotation.set(...rot);
+  shadowPlane.scale.set(0, 0, 0);
+  shadowPlane.position.z -= 0.008; // Further behind
+  shadowPlane.renderOrder = 997;
 
+  cube.add(shadowPlane);
+  cube.add(borderPlane);
   cube.add(popupPlane);
 
-  // animate the plane popup
-  gsap.to(popupPlane.scale, {
+  bloomPass.strength = 0.12;
+
+  gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
     x: 1,
     y: 1,
     z: 1,
@@ -452,11 +483,11 @@ function showPopupPlane(faceIndex) {
     }
   });
 
-  gsap.to(material, {
+  gsap.to(popupPlane.material, {
     opacity: 1,
     duration: 0.5,
     ease: "power2.out"
-  });  
+  });
 }
 
 const clock = new THREE.Clock();
@@ -477,25 +508,34 @@ function animate() {
     return Math.sin(t * Math.PI * 2); // Starts and ends at 0
   }
 
-  // Reset positions
-  cube.position.x = 0;
-  cube.position.y = 0;
+  // Only animate if popup is not visible
+  if (!popupPlane) {
+    const t = time % cycleDuration;
 
-  if (t < phaseDuration) {
-    // Phase 1: up-down-up (Y axis)
-    const progress = t / phaseDuration;
-    cube.position.y = sineCycle(progress) * amplitude;
-  } else if (t < phaseDuration + pauseDuration) {
-    // Phase 2: pause in center (Y axis)
-    cube.position.y = 0;
-  } else if (t < 2 * phaseDuration + pauseDuration) {
-    // Phase 3: left-right-left (X axis)
-    const progress = (t - phaseDuration - pauseDuration) / phaseDuration;
-    cube.position.x = sineCycle(progress) * amplitude;
-  } else {
-    // Phase 4: pause in center (X axis)
+    // Reset positions
     cube.position.x = 0;
-  }
+    cube.position.y = 0;
+
+    if (t < phaseDuration) {
+      // Phase 1: up-down-up (Y axis)
+      const progress = t / phaseDuration;
+      cube.position.y = sineCycle(progress) * amplitude;
+    } else if (t < phaseDuration + pauseDuration) {
+      // Phase 2: pause in center (Y axis)
+      cube.position.y = 0;
+    } else if (t < 2 * phaseDuration + pauseDuration) {
+      // Phase 3: left-right-left (X axis)
+      const progress = (t - phaseDuration - pauseDuration) / phaseDuration;
+      cube.position.x = sineCycle(progress) * amplitude;
+    } else {
+      // Phase 4: pause in center (X axis)
+      cube.position.x = 0;
+    }
+    } else {
+      // Optional: Reset position when popup is shown
+      cube.position.x = 0;
+      cube.position.y = 0;
+    }
 
     
     // smooth rotation logic 
