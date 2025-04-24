@@ -49,6 +49,8 @@ async function createMaterial(imagePath) {
     metalness: 0.95,
     roughness: 0.15,
     envMapIntensity: 1.2,
+    transparent: true,
+    opacity: 0,
   });
 }
 
@@ -279,15 +281,15 @@ function init() {
   });
 }
 
-// function snapRotation() {
-//   const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
-//   const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
-//   targetRotation.x = snappedX;
-//   targetRotation.y = snappedY;
+function snapRotation() {
+  const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
+  const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
+  targetRotation.x = snappedX;
+  targetRotation.y = snappedY;
 
-//   currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
-//   updateLink(currentFaceIndex);
-// }
+  currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
+  updateLink(currentFaceIndex);
+}
 
 function getFrontFaceIndex(rotX, rotY) {
   const x = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
@@ -340,6 +342,46 @@ function onDoubleClick(event) {
 
 let popupPlane, borderPlane, shadowPlane;
 
+const popupWidth = 2;
+const popupHeight = 1;
+const borderThickness = 0.04; // or however thick you want it
+
+const popupGeometry = new THREE.PlaneGeometry(popupWidth, popupHeight, 4, 4);
+const borderGeometry = new THREE.PlaneGeometry(popupWidth + borderThickness, popupHeight + borderThickness, 4, 4);
+const shadowGeometry = new THREE.PlaneGeometry(popupWidth + 0.1, popupHeight + 0.1, 4, 4);
+
+const glowPlaneMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    glowColor: { value: new THREE.Color(0x00ffff) },
+    glowIntensity: { value: 4 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 glowColor;
+    uniform float glowIntensity;
+    varying vec2 vUv;
+
+    void main() {
+      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      float intensity = clamp(edgeDist * glowIntensity, 0.0, 1.0);
+      float alpha = 1.0 - intensity;
+      gl_FragColor = vec4(glowColor * alpha * 5.0, alpha); // adjust for brighter / more glow
+    }
+  `,
+  blending: THREE.AdditiveBlending,
+  transparent: true,
+  depthWrite: false
+});
+
+
+
+
 function showPopupPlane(faceIndex) {
   if (popupPlane) {
     bloomPass.strength = 0.2;
@@ -370,8 +412,6 @@ function showPopupPlane(faceIndex) {
     return;
   }
 
-  const popupWidth = 2;
-  const popupHeight = 1;
   const offset = 0.61;
 
   const positions = [
@@ -407,6 +447,7 @@ function showPopupPlane(faceIndex) {
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
     material = new THREE.MeshBasicMaterial({
       map: texture,
@@ -424,7 +465,7 @@ function showPopupPlane(faceIndex) {
 
   // --- POPUP PLANE
   popupPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(popupWidth, popupHeight),
+    popupGeometry,
     material
   );
   popupPlane.position.set(...pos);
@@ -434,26 +475,25 @@ function showPopupPlane(faceIndex) {
   popupPlane.material.depthWrite = false;
   popupPlane.material.depthTest = false;
 
- 
-  const borderThickness = 0.04; // more visible, adjust to taste
+  popupPlane.material.polygonOffset = true;
+  popupPlane.material.polygonOffsetFactor = -1;
+  popupPlane.material.polygonOffsetUnits = -4;
+
+  // --- BORDER PLANE
   borderPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(popupWidth + borderThickness, popupHeight + borderThickness),
-    new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-      toneMapped: false,
-      depthTest: false 
-    })
+    borderGeometry,
+    glowPlaneMaterial
   );
   borderPlane.position.set(...pos);
   borderPlane.rotation.set(...rot);
   borderPlane.scale.set(0, 0, 0);
-  borderPlane.position.z -= 0.007; // just behind popupPlane
+  borderPlane.translateZ(-0.008); // just behind popupPlane
   borderPlane.renderOrder = 998;
 
 
   // --- SHADOW PLANE 
   shadowPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(popupWidth + 0.08, popupHeight + 0.08),
+    shadowGeometry,
     new THREE.MeshBasicMaterial({
       color: 0x000000,
       transparent: true,
@@ -463,7 +503,7 @@ function showPopupPlane(faceIndex) {
   shadowPlane.position.set(...pos);
   shadowPlane.rotation.set(...rot);
   shadowPlane.scale.set(0, 0, 0);
-  shadowPlane.position.z -= 0.008; // Further behind
+  shadowPlane.translateZ(-0.015); // Further behind
   shadowPlane.renderOrder = 997;
 
   cube.add(shadowPlane);
@@ -472,6 +512,7 @@ function showPopupPlane(faceIndex) {
 
   bloomPass.strength = 0.12;
 
+  // animate popup planes in 
   gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
     x: 1,
     y: 1,
