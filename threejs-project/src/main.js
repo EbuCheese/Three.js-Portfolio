@@ -512,7 +512,6 @@ function showPopupPlane(faceIndex) {
 
   bloomPass.strength = 0.12;
 
-  // animate popup planes in 
   gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
     x: 1,
     y: 1,
