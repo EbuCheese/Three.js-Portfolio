@@ -4,7 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { gsap } from 'gsap';
-
+import { TextureLoader } from 'three';
 
 let scene, camera, renderer, composer, cube;
 let isPopupActive = false;
@@ -54,6 +54,19 @@ async function createMaterial(imagePath) {
   });
 }
 
+export function setSceneBackground(imagePath, scene) {
+  loader.load(imagePath, texture => {
+    scene.background = texture;
+  });
+}
+
+const bgSelector = document.getElementById('bg-selector');
+bgSelector.addEventListener('change', (e) => {
+  const selectedValue = e.target.value;
+  loader.load(selectedValue, texture => {
+    scene.background = texture;
+  });
+});
 
 
 // Gradient BG
@@ -88,6 +101,7 @@ function loadHDR(path) {
 
 let materials = [];
 
+
 // Load everything before starting the scene
 Promise.all([
   loadHDR('/test2.hdr'),
@@ -95,7 +109,14 @@ Promise.all([
 ]).then(([hdrTexture, loadedMaterials]) => {
   // Set the HDR environment and background
   scene.environment = hdrTexture;
-  scene.background = hdrTexture;
+  // scene.background = backgroundTexture;
+
+  const bgSelector = document.getElementById('bg-selector');
+  const defaultBg = bgSelector.value;
+
+  loader.load(defaultBg, texture => {
+    scene.background = texture;
+  });
 
   materials = loadedMaterials;
 
@@ -202,7 +223,7 @@ function init() {
 
 
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(window.devicePixelRatio); // important!
+  renderer.setPixelRatio(window.devicePixelRatio);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
 
@@ -304,6 +325,7 @@ function getFrontFaceIndex(rotX, rotY) {
   if (y === 2) return 5; // back
   if (y === 3) return 1; // left
 }
+
 
 function updateLink(faceIndex) {
 
@@ -587,3 +609,5 @@ function animate() {
 
     
 }
+
+
