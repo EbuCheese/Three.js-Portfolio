@@ -308,6 +308,19 @@ function snapRotation() {
   targetRotation.x = snappedX;
   targetRotation.y = snappedY;
 
+  const newFaceIndex = getFrontFaceIndex(snappedX, snappedY);
+
+  if (popupPlane && currentFaceIndex !== newFaceIndex) {
+    // Close popup if we snapped to a new face
+    cube.remove(popupPlane);
+    cube.remove(borderPlane);
+    cube.remove(shadowPlane);
+    popupPlane = null;
+    borderPlane = null;
+    shadowPlane = null;
+    isPopupActive = false;
+  }
+
   currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
   updateLink(currentFaceIndex);
 }
