@@ -8,6 +8,7 @@ import { TextureLoader } from 'three';
 
 let scene, camera, renderer, composer, cube;
 let isPopupActive = false;
+let hasShownClickHint = false;
 let isDragging = false;
 let startX = 0;
 let startY = 0;
@@ -311,7 +312,7 @@ function snapRotation() {
   const newFaceIndex = getFrontFaceIndex(snappedX, snappedY);
 
   if (popupPlane && currentFaceIndex !== newFaceIndex) {
-    // Close popup if we snapped to a new face
+    // Close popup if snapped to a new face
     cube.remove(popupPlane);
     cube.remove(borderPlane);
     cube.remove(shadowPlane);
@@ -319,6 +320,21 @@ function snapRotation() {
     borderPlane = null;
     shadowPlane = null;
     isPopupActive = false;
+  }
+
+  // logic to show hints for cube interaction
+  if (!hasShownClickHint) {
+    const clickHint = document.getElementById('click-hint');
+    const dragHint = document.getElementById('scroll-hint');
+
+    clickHint.style.display = 'flex';
+    clickHint.style.animation = 'floatFade 5s ease-out forwards';
+
+    if (dragHint) {
+      dragHint.classList.add('fade-out');
+    }
+
+    hasShownClickHint = true;
   }
 
   currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
