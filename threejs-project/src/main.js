@@ -21,6 +21,23 @@ const loader = new THREE.TextureLoader();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
+const helpButton = document.getElementById('help-button');
+const helpPanel = document.getElementById('help-panel');
+
+helpButton.addEventListener('click', () => {
+  helpPanel.classList.toggle('show');
+});
+
+
+function isClickOnUI(event) {
+  const ignoredElements = ['bg-selector', 'help-button', 'help-panel', 'link-btn', 'click-hint', 'scroll-hint'];
+  return ignoredElements.some(id => {
+    const el = document.getElementById(id);
+    return el && (el.contains(event.target) || event.target === el);
+  });
+}
+
+
 // project data array
 const projects = [
   { image: '/dogmeditate.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
@@ -250,14 +267,19 @@ function init() {
 
   // Mouse controls
   window.addEventListener('mousedown', (e) => {
+    if (isClickOnUI(e)) return;
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
   });
 
-  window.addEventListener('mouseup', () => {
-    isDragging = false;
-    snapRotation();
+  window.addEventListener('mouseup', (e) => {
+    if (isDragging) {
+      isDragging = false;
+      if (!isClickOnUI(e)) {
+        snapRotation();
+      }
+    }
   });
 
   window.addEventListener('mousemove', (e) => {
@@ -274,12 +296,14 @@ function init() {
 
   // Touch controls
   window.addEventListener('touchstart', (e) => {
+    if (isClickOnUI(e)) return;
     isDragging = true;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
   });
 
   window.addEventListener('touchmove', (e) => {
+    if (isClickOnUI(e)) return;
     if (!isDragging) return;
     const deltaX = e.touches[0].clientX - startX;
     const deltaY = e.touches[0].clientY - startY;
@@ -292,6 +316,7 @@ function init() {
   });
 
   window.addEventListener('touchend', () => {
+    if (isClickOnUI(e)) return;
     isDragging = false;
     snapRotation();
   });
