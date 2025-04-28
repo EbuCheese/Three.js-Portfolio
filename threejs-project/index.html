@@ -8,19 +8,41 @@
   <title>Portfolio Cube</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: "Orbitron", sans-serif; }
+    body.grabbing {
+      cursor: grabbing;
+    }
     canvas { display: block; }
+
+    #github-logo {
+      width: 25px;
+      height: 25px;
+      filter: brightness(0) invert(1);
+    }
     #link-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       position: absolute;
       bottom: 10%;
       left: 50%;
       transform: translateX(-50%);
-      background: #222;
-      color: #fff;
-      padding: 10px 20px;
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      background: rgba(0, 0, 0, 0.85);
+      color: #00ffff;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.9rem;
       border-radius: 8px;
-      font-family: sans-serif;
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+      padding: 10px 20px;
       text-decoration: none;
     }
+
+    #link-btn:hover {
+      border-color: #00ffff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+      cursor: pointer;
+    }
+
     #scroll-hint {
     position: absolute;
     top: 30px;
@@ -357,11 +379,13 @@
   margin-bottom: 0.7rem;
 }
 
-
 </style>
 </head>
 <body>
-  <a id="link-btn" href="#" target="_blank">View Project</a>
+  <a id="link-btn" href="#" target="_blank">
+    <img id="github-logo" src="/github-mark.svg" alt="github logo">
+    View Repo: <span id="project-name"></span>
+  </a>  
   <script type="module" src="./src/main.js"></script>
 </body>
 <div id="scroll-hint">
@@ -380,9 +404,9 @@
   <h2>Cube Controls:</h2>
   <ul>
     <li><strong>Drag</strong> — Rotate the cube</li>
-    <li><strong>Double Click Face</strong> — Open project video popup</li>
+    <li><strong>Double Click Face</strong> — Open/Close project video popup</li>
     <li><strong>View Repo</strong> — Github url for project</li>
-    <li><strong>Snap</strong> — Cube snaps to closest face</li>
+    <li><strong>Top Right Number</strong> — Change the background scenery</li>
   </ul>
 </div>
 

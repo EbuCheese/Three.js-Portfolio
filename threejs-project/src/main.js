@@ -6,6 +6,15 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { gsap } from 'gsap';
 import { TextureLoader } from 'three';
 
+const CUBE_FACES = {
+  RIGHT: 0,  // +X
+  LEFT: 1,   // -X
+  TOP: 2,    // +Y
+  BOTTOM: 3, // -Y
+  FRONT: 4,  // +Z
+  BACK: 5    // -Z
+};
+
 let scene, camera, renderer, composer, cube;
 let isPopupActive = false;
 let hasShownClickHint = false;
@@ -16,6 +25,9 @@ let currentFaceIndex = 0;
 let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
 let bloomPass;
+
+
+let openedFaceIndex = null;  // Global opened face
 
 const loader = new THREE.TextureLoader();
 const raycaster = new THREE.Raycaster();
@@ -28,7 +40,6 @@ helpButton.addEventListener('click', () => {
   helpPanel.classList.toggle('show');
 });
 
-
 function isClickOnUI(event) {
   const ignoredElements = ['bg-selector', 'help-button', 'help-panel', 'link-btn', 'click-hint', 'scroll-hint'];
   return ignoredElements.some(id => {
@@ -40,16 +51,26 @@ function isClickOnUI(event) {
 
 // project data array
 const projects = [
-  { image: '/dogmeditate.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project1', name: 'Youtube Clip Discord Bot' },
-  { image: '/fish.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project2' },
-  { image: '/catcreeper.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project3' },
-  { image: '/DD.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project4' },
-  { image: '/lego-sleep.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project5' },
-  { image: '/lime.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project6' }
+  { image: '/fish.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project2', name: 'Right (+X)' },
+  { image: '/dogmeditate.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project1', name: 'Left (-X)' },
+  { image: '/catcreeper.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project3', name: 'Top (+Y)' },
+  { image: '/DD.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project4', name: 'Bottom (-Y)' },
+  { image: '/lego-sleep.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project5', name: 'Front (+Z)' },
+  { image: '/lime.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project6', name: 'Back (-Z)' }
 ];
 
 // Shuffle and assign 6 random projects
-const shuffled = projects.sort(() => 0.5 - Math.random()).slice(0, 6);
+const shuffled = [...projects].sort(() => 0.5 - Math.random());
+console.log(shuffled);
+
+const orderedShuffled = [
+  shuffled[1], // right -> shuffled[1] (not 0!)
+  shuffled[0], // left -> shuffled[0]
+  shuffled[2], // top
+  shuffled[3], // bottom
+  shuffled[4], // front
+  shuffled[5], // back
+];
 
 // Function to create a material with high-quality texture
 async function createMaterial(imagePath) {
@@ -72,6 +93,18 @@ async function createMaterial(imagePath) {
   });
 }
 
+// Helper to load HDR as a Promise
+function loadHDR(path) {
+  return new Promise((resolve) => {
+    const rgbeLoader = new RGBELoader();
+    rgbeLoader.load(path, (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      resolve(texture);
+    });
+  });
+}
+
+
 export function setSceneBackground(imagePath, scene) {
   loader.load(imagePath, texture => {
     scene.background = texture;
@@ -87,48 +120,18 @@ bgSelector.addEventListener('change', (e) => {
 });
 
 
-// Gradient BG
-function generateRadialGradient() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-
-  const gradient = ctx.createRadialGradient(256, 256, 50, 256, 256, 256);
-  gradient.addColorStop(0, '#2200aa');
-  gradient.addColorStop(1, '#000000');
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  return canvas;
-}
-
-
 init();
 
-// Helper to load HDR as a Promise
-function loadHDR(path) {
-  return new Promise((resolve) => {
-    const rgbeLoader = new RGBELoader();
-    rgbeLoader.load(path, (texture) => {
-      texture.mapping = THREE.EquirectangularReflectionMapping;
-      resolve(texture);
-    });
-  });
-}
 
 let materials = [];
-
-
 // Load everything before starting the scene
 Promise.all([
   loadHDR('/test2.hdr'),
-  Promise.all(shuffled.map(p => createMaterial(p.image)))
+  Promise.all(orderedShuffled.map(p => createMaterial(p.image)))
 ]).then(([hdrTexture, loadedMaterials]) => {
-  // Set the HDR environment and background
+  // Set the HDR environment
   scene.environment = hdrTexture;
-  // scene.background = backgroundTexture;
-
+  
   const bgSelector = document.getElementById('bg-selector');
   const defaultBg = bgSelector.value;
 
@@ -205,14 +208,9 @@ Promise.all([
     });
   });
 
-  updateLink(0); // Start with front face
 
   // Fade out loading screen
   document.getElementById('loading-screen').classList.add('loaded');
-
-  cube.rotation.x = targetRotation.x;
-  cube.rotation.y = targetRotation.y;
-
   animate();
 
 });
@@ -221,24 +219,12 @@ function init() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.z = 2.5;
-  camera.layers.enable(0);
-  camera.layers.enable(1);
 
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 
   renderer.physicallyCorrectLights = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
-
-
-  // add light if needed
-  // const light = new THREE.DirectionalLight(0xffffff, 0.6);
-  // light.position.set(5, 5, 5);
-  // scene.add(light);
-
-  // const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-  // scene.add(ambient);
-
 
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -261,7 +247,7 @@ function init() {
   composer.addPass(bloomPass);
 
   // EVENTS //
-
+  
   // Click Event
   window.addEventListener('dblclick', onDoubleClick);
 
@@ -269,6 +255,7 @@ function init() {
   window.addEventListener('mousedown', (e) => {
     if (isClickOnUI(e)) return;
     isDragging = true;
+    document.body.classList.add('grabbing');
     startX = e.clientX;
     startY = e.clientY;
   });
@@ -276,6 +263,7 @@ function init() {
   window.addEventListener('mouseup', (e) => {
     if (isDragging) {
       isDragging = false;
+      document.body.classList.remove('grabbing');
       if (!isClickOnUI(e)) {
         snapRotation();
       }
@@ -331,6 +319,7 @@ function init() {
 function snapRotation() {
   const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
   const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
+
   targetRotation.x = snappedX;
   targetRotation.y = snappedY;
 
@@ -364,57 +353,157 @@ function snapRotation() {
 
   currentFaceIndex = getFrontFaceIndex(snappedX, snappedY);
   updateLink(currentFaceIndex);
+
+  console.log('SnapRotation(); Called - Snapped to new face:', {
+    face: newFaceIndex,
+    faceName: ["RIGHT", "LEFT", "TOP", "BOTTOM", "FRONT", "BACK"][newFaceIndex],
+    project: shuffled[newFaceIndex]
+  });
 }
 
 function getFrontFaceIndex(rotX, rotY) {
-  const x = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
-  const y = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4;
+  // Normalize rotations to 0-3 range (representing 0, 90, 180, 270 degrees)
+  const normalizedX = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
+  const normalizedY = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4;
+  
+  
+  console.log('Rotation debug:', {
+    rawX: rotX, 
+    rawY: rotY, 
+    normalizedX, 
+    normalizedY
+  });
 
-  // Face order: 
-  // 0: right, 1: left, 2: top, 3: bottom, 4: front, 5: back
-  if (x === 1) return 2; // top
-  if (x === 3) return 3; // bottom
-  if (y === 0) return 4; // front
-  if (y === 1) return 0; // right
-  if (y === 2) return 5; // back
-  if (y === 3) return 1; // left
+  // Standard cube mapping logic
+  if (normalizedX === 1) return CUBE_FACES.TOP;    // Top face
+  if (normalizedX === 3) return CUBE_FACES.BOTTOM; // Bottom face
+  
+  // Handle front/back/left/right based on Y rotation
+  if (normalizedX === 0 || normalizedX === 2) {
+    // Y-rotation determines which of the side faces we see
+    if (normalizedY === 0) return CUBE_FACES.FRONT; // Front
+    if (normalizedY === 1) return CUBE_FACES.RIGHT; // Right
+    if (normalizedY === 2) return CUBE_FACES.BACK;  // Back
+    if (normalizedY === 3) return CUBE_FACES.LEFT;  // Left
+  }
+  
+  return CUBE_FACES.FRONT; // Default to front if something goes wrong
 }
 
-
+// Function to update the link btn inside the popupPlane for project face
 function updateLink(faceIndex) {
-
-  // remove previous popup if face does not match
-  if (popupPlane && currentFaceIndex !== faceIndex) {
-    scene.remove(popupPlane); // make sure it's removed from the right parent
-    popupPlane = null;
-  }
-
   const project = shuffled[faceIndex];
+  
+  console.log('Updating link for:', {
+    face: faceIndex,
+    faceName: Object.keys(CUBE_FACES)[Object.values(CUBE_FACES).indexOf(faceIndex)],
+    project: project,
+    isPopupActive: isPopupActive
+  });
+  
   const linkEl = document.getElementById('link-btn');
-  if (project && linkEl) {
+  const projectNameEl = document.getElementById('project-name');
+  
+  if (!linkEl || !projectNameEl) return;
+  
+  if (project && isPopupActive) {
     linkEl.href = project.link;
-    linkEl.textContent = `View Repo: ${project.name}`; // add github svg?
+    projectNameEl.textContent = project.name;
+    linkEl.style.display = 'flex'; // Show link
+  } else {
+    linkEl.style.display = 'none'; // Hide link
   }
 }
 
 // Click Func
 
-function onDoubleClick(event) {
-  if (isDragging) return; // don't trigger on drag
 
+function onDoubleClick(event) {
+  // Don’t interfere while dragging or when clicking UI elements
+  if (isDragging || isClickOnUI(event)) return;
+
+  // Convert mouse to normalized device coords
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
+  // Raycast against the cube (including its outline/shadow children)
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(cube, false);
+  const hits = raycaster.intersectObject(cube, true);
+  if (!hits.length) return;
 
-  if (intersects.length > 0) {
-    const faceIndex = Math.floor(intersects[0].faceIndex / 2);
-    showPopupPlane(faceIndex);
+  // Geometry face → raw face index (0–5)
+  const raw = Math.floor(hits[0].faceIndex / 2);
+
+  // Map raw face to your logical CUBE_FACES enum
+  const faceLookup = [
+    CUBE_FACES.RIGHT,   // raw 0 → +X
+    CUBE_FACES.LEFT,    // raw 1 → -X
+    CUBE_FACES.TOP,     // raw 2 → +Y
+    CUBE_FACES.BOTTOM,  // raw 3 → -Y
+    CUBE_FACES.FRONT,   // raw 4 → +Z
+    CUBE_FACES.BACK     // raw 5 → -Z
+  ];
+  const faceIndex = faceLookup[raw];
+
+  // If a popup is already open:
+  if (popupPlane) {
+    if (openedFaceIndex === faceIndex) {
+      // clicking same face again → do nothing
+      return;
+    } else {
+      // clicking a different face while popup open → just close it
+      hidePopup();
+      openedFaceIndex = null;
+      return;
+    }
+  }
+
+  // No popup yet → open the new one
+  showPopupPlane(faceIndex);
+  updateLink(faceIndex);
+  openedFaceIndex = faceIndex;
+}
+
+
+function hidePopup() {
+  if (popupPlane) {
+    bloomPass.strength = 0.2;
+
+    gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
+      x: 0,
+      y: 0,
+      z: 0,
+      duration: 0.4,
+      ease: "back.in(1.7)"
+    });
+
+    gsap.to(popupPlane.material, {
+      opacity: 0,
+      duration: 0.3,
+      ease: "power2.in",
+      onComplete: () => {
+        cube.remove(popupPlane);
+        cube.remove(borderPlane);
+        cube.remove(shadowPlane);
+        popupPlane = null;
+        borderPlane = null;
+        shadowPlane = null;
+        isPopupActive = false;
+
+        const linkEl = document.getElementById('link-btn');
+        if (linkEl) {
+          linkEl.style.display = 'none';
+        }
+
+        // Reset the opened face
+        openedFaceIndex = null;
+      }
+    });
   }
 }
 
-// Popup Plane Func
+
+// Popup Planes Creation
 
 let popupPlane, borderPlane, shadowPlane;
 
@@ -459,9 +548,37 @@ const glowPlaneMaterial = new THREE.ShaderMaterial({
 
 
 function showPopupPlane(faceIndex) {
+  openedFaceIndex = faceIndex;
+  console.log(openedFaceIndex);
+  const originalBloomStrength = 0.2; // Store the default bloom strength
+  
+  // If popup is already active, close it first
   if (popupPlane) {
-    bloomPass.strength = 0.2;
+    // Make sure we set a consistent cleanup function
+    const cleanupPopup = () => {
+      cube.remove(popupPlane);
+      cube.remove(borderPlane);
+      cube.remove(shadowPlane);
+      popupPlane = null;
+      borderPlane = null;
+      shadowPlane = null;
+      isPopupActive = false;
 
+      // Reset bloom to original value
+      bloomPass.strength = originalBloomStrength;
+      
+      // Hide link when popup is closed
+      const linkEl = document.getElementById('link-btn');
+      if (linkEl) {
+        linkEl.style.display = 'none';
+      }
+      
+      console.log("Popup closed, bloom reset to:", originalBloomStrength);
+    };
+
+    // Make sure the animation completes properly
+    bloomPass.strength = 0.2; // Reset bloom first
+    
     gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
       x: 0,
       y: 0,
@@ -474,19 +591,12 @@ function showPopupPlane(faceIndex) {
       opacity: 0,
       duration: 0.3,
       ease: "power2.in",
-      onComplete: () => {
-        cube.remove(popupPlane);
-        cube.remove(borderPlane);
-        cube.remove(shadowPlane);
-        popupPlane = null;
-        borderPlane = null;
-        shadowPlane = null;
-        isPopupActive = false;
-      }
+      onComplete: cleanupPopup // Use our consistent cleanup function
     });
 
     return;
   }
+
 
   const offset = 0.61;
 
@@ -504,7 +614,10 @@ function showPopupPlane(faceIndex) {
   const pos = positions[faceIndex];
   const rot = rotation[faceIndex];
 
+
   const project = shuffled[faceIndex];
+  console.log('Popup debug – faceIndex:', faceIndex, 'project:', project);
+
   let material;
 
   if (project.video) {
@@ -579,7 +692,7 @@ function showPopupPlane(faceIndex) {
   shadowPlane.position.set(...pos);
   shadowPlane.rotation.set(...rot);
   shadowPlane.scale.set(0, 0, 0);
-  shadowPlane.translateZ(-0.015); // Further behind
+  shadowPlane.translateZ(-0.015);
   shadowPlane.renderOrder = 997;
 
   cube.add(shadowPlane);
@@ -596,6 +709,9 @@ function showPopupPlane(faceIndex) {
     ease: "back.out(1.7)",
     onComplete: () => {
       isPopupActive = true;
+      document.getElementById('link-btn').style.display = 'flex';
+      updateLink(faceIndex);
+      snapRotation();
     }
   });
 
@@ -610,6 +726,16 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   if (!cube) return;
+
+  if (popupPlane) {
+    if (bloomPass.strength !== 0.12) {
+      bloomPass.strength = 0.12; // Ensure popup bloom value
+    }
+  } else {
+    if (bloomPass.strength !== 0.2) {
+      bloomPass.strength = 0.2; // Ensure default bloom value
+    }
+  }
 
   const time = clock.getElapsedTime();
   const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
