@@ -7,11 +7,50 @@
   <meta charset="UTF-8" />
   <title>Portfolio Cube</title>
   <style>
-    body { margin: 0; overflow: hidden; font-family: "Orbitron", sans-serif; }
+    body { margin: 0; overflow: hidden; font-family: "Orbitron", sans-serif; cursor: none; }
     body.grabbing {
       cursor: grabbing;
     }
     canvas { display: block; }
+
+    body {
+  cursor: none;
+}
+
+#custom-cursor {
+  width: 25px;
+  height: 25px;
+  border: 2px solid #00ffff;
+  border-radius: 50%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1);
+  transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  z-index: 10001;
+  box-shadow: 0 0 12px #00ffff, 0 0 24px rgba(0, 255, 255, 0.5);
+  mix-blend-mode: difference;
+  backdrop-filter: blur(3px);
+  animation: cursorPulse 2s infinite ease-in-out;
+}
+
+/* A new class to disable animation during hover */
+#custom-cursor.hovering {
+  animation: none; /* Stop pulsing animation */
+}
+
+@keyframes cursorPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px #00ffff, 0 0 20px rgba(0, 255, 255, 0.5);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 18px #00ffff, 0 0 36px rgba(0, 255, 255, 0.7);
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
 
     #github-logo {
       width: 25px;
@@ -40,7 +79,7 @@
     #link-btn:hover {
       border-color: #00ffff;
       box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
-      cursor: pointer;
+      cursor: none;
     }
 
     #scroll-hint {
@@ -304,12 +343,13 @@
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
   backdrop-filter: blur(8px);
   transition: all 0.3s ease;
+  cursor: none;
 }
 
 #bg-selector:hover {
   border-color: #00ffff;
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
-  cursor: pointer;
+  cursor: none;
 }
 
 #help-button {
@@ -326,7 +366,6 @@
   border-radius: 6px;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
   backdrop-filter: blur(8px);
-  cursor: pointer;
   transition: all 0.3s ease;
   user-select: none;
 }
@@ -334,7 +373,6 @@
 #help-button:hover {
   border-color: #00ffff;
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
-  cursor: pointer;
 }
 
 #help-panel {
@@ -398,7 +436,7 @@
     <span>Double click a cube face</span>
 </div>
 
-<div id="help-button">?</div>
+<div class="clickable" id="help-button">?</div>
 
 <div id="help-panel">
   <h2>Cube Controls:</h2>
@@ -410,7 +448,7 @@
   </ul>
 </div>
 
-<select id="bg-selector">
+<select id="bg-selector" class="clickable">
   <option value="/fu1.jpg" selected>1</option>
   <option value="/fu2.jpg">2</option>
   <option value="/fu3.png">3</option>

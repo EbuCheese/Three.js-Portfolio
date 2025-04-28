@@ -25,21 +25,43 @@ let currentFaceIndex = 0;
 let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
 let bloomPass;
-
-
 let openedFaceIndex = null;  // Global opened face
 
 const loader = new THREE.TextureLoader();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
+// create custom cursor
+const cursor = document.createElement('div');
+cursor.id = 'custom-cursor';
+document.body.appendChild(cursor);
+
+// when cursor hovers a clickable elem
+document.querySelectorAll('a, button, .clickable').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    cursor.classList.add('hovering');
+    cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+    cursor.style.boxShadow = '0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.8)';
+  });
+  
+  el.addEventListener('mouseleave', () => {
+    cursor.classList.remove('hovering');
+    cursor.style.transform = 'translate(-50%, -50%) scale(1)';
+    cursor.style.boxShadow = '0 0 12px #00ffff, 0 0 24px rgba(0, 255, 255, 0.5)';
+  });
+});
+
+
+// get help button elems
 const helpButton = document.getElementById('help-button');
 const helpPanel = document.getElementById('help-panel');
 
+// show help info on click
 helpButton.addEventListener('click', () => {
   helpPanel.classList.toggle('show');
 });
 
+// function to ignore the UI elements
 function isClickOnUI(event) {
   const ignoredElements = ['bg-selector', 'help-button', 'help-panel', 'link-btn', 'click-hint', 'scroll-hint'];
   return ignoredElements.some(id => {
@@ -47,7 +69,6 @@ function isClickOnUI(event) {
     return el && (el.contains(event.target) || event.target === el);
   });
 }
-
 
 // project data array
 const projects = [
@@ -208,7 +229,7 @@ Promise.all([
     });
   });
 
-
+  updateLink(1);
   // Fade out loading screen
   document.getElementById('loading-screen').classList.add('loaded');
   animate();
@@ -255,7 +276,6 @@ function init() {
   window.addEventListener('mousedown', (e) => {
     if (isClickOnUI(e)) return;
     isDragging = true;
-    document.body.classList.add('grabbing');
     startX = e.clientX;
     startY = e.clientY;
   });
@@ -263,7 +283,6 @@ function init() {
   window.addEventListener('mouseup', (e) => {
     if (isDragging) {
       isDragging = false;
-      document.body.classList.remove('grabbing');
       if (!isClickOnUI(e)) {
         snapRotation();
       }
@@ -271,6 +290,10 @@ function init() {
   });
 
   window.addEventListener('mousemove', (e) => {
+
+    cursor.style.top = `${e.clientY}px`;
+    cursor.style.left = `${e.clientX}px`;
+
     if (!isDragging) return;
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
@@ -545,9 +568,13 @@ const glowPlaneMaterial = new THREE.ShaderMaterial({
 });
 
 
-
-
 function showPopupPlane(faceIndex) {
+    // remove the click hint elem right away if on screen
+    const clickHint = document.getElementById('click-hint');
+    if (clickHint) {
+      clickHint.remove();
+    }
+
   openedFaceIndex = faceIndex;
   console.log(openedFaceIndex);
   const originalBloomStrength = 0.2; // Store the default bloom strength
