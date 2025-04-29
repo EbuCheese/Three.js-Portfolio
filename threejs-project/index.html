@@ -20,7 +20,7 @@
 #custom-cursor {
   width: 25px;
   height: 25px;
-  border: 2px solid #00ffff;
+  border: 2.5px solid #00ffff;
   border-radius: 50%;
   position: fixed;
   top: 0;
@@ -31,14 +31,19 @@
   z-index: 10001;
   box-shadow: 0 0 12px #00ffff, 0 0 24px rgba(0, 255, 255, 0.5);
   mix-blend-mode: difference;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(2px);
   animation: cursorPulse 2s infinite ease-in-out;
 }
 
 /* A new class to disable animation during hover */
 #custom-cursor.hovering {
-  animation: none; /* Stop pulsing animation */
+  transform: translate(-50%, -50%) scale(1.6);
+  background-color: rgba(96, 255, 255, 0.76);
+  border-color: #00ffff;
+  box-shadow: 0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.7);
+  animation: none; /* Disable the pulse while hovering */
 }
+
 
 @keyframes cursorPulse {
   0%, 100% {

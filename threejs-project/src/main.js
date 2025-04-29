@@ -40,7 +40,7 @@ document.body.appendChild(cursor);
 document.querySelectorAll('a, button, .clickable').forEach(el => {
   el.addEventListener('mouseenter', () => {
     cursor.classList.add('hovering');
-    cursor.style.transform = 'translate(-50%, -50%) scale(1.5)';
+    cursor.style.transform = 'translate(-50%, -50%) scale(1.3)';
     cursor.style.boxShadow = '0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.8)';
   });
   
