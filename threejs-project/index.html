@@ -37,7 +37,7 @@
 
 /* A new class to disable animation during hover */
 #custom-cursor.hovering {
-  transform: translate(-50%, -50%) scale(1.6);
+  transform: translate(-50%, -50%) scale(1.33);
   background-color: rgba(96, 255, 255, 0.76);
   border-color: #00ffff;
   box-shadow: 0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.7);
@@ -421,12 +421,15 @@
 
 /* Custom cursor square variant */
 .cursor-square {
-  width: 15px !important;
-  height: 15px !important;
-  border-radius: 3px !important;
-  background-color: rgba(0, 255, 255, 0.3) !important;
-  transform: translate(-50%, -50%) scale(1.1) !important;
-  box-shadow: 0 0 10px #00ffff, 0 0 20px rgba(0, 255, 255, 0.5) !important;
+  width: 23px !important;
+  height: 18px !important;
+  border-radius: 4px !important;
+  border: 2.5px solid #00ffff;
+  transform: translate(-50%, -50%) scale(0.8);
+  background-color: rgba(96, 255, 255, 0.76);
+  border-color: #00ffff;
+  box-shadow: 0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.7);
+  animation: none; /* Disable the pulse while hovering */
 }
 
 
