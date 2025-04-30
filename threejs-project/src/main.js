@@ -18,7 +18,6 @@ const CUBE_FACES = {
 let scene, camera, renderer, composer, cube;
 let isPopupActive = false;
 let hasShownClickHint = false;
-let isDragging = false;
 let startX = 0;
 let startY = 0;
 let currentFaceIndex = 0;
@@ -26,6 +25,10 @@ let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
 let bloomPass;
 let openedFaceIndex = null;  // Global opened face
+
+let isDragging = false;
+let dragInitiated = false;
+const DRAG_THRESHOLD = 3;
 
 const loader = new THREE.TextureLoader();
 const raycaster = new THREE.Raycaster();
@@ -40,16 +43,13 @@ document.body.appendChild(cursor);
 document.querySelectorAll('a, button, .clickable').forEach(el => {
   el.addEventListener('mouseenter', () => {
     cursor.classList.add('hovering');
-    cursor.style.transform = 'translate(-50%, -50%) scale(1.3)';
-    cursor.style.boxShadow = '0 0 20px #00ffff, 0 0 40px rgba(0, 255, 255, 0.8)';
   });
   
   el.addEventListener('mouseleave', () => {
     cursor.classList.remove('hovering');
-    cursor.style.transform = 'translate(-50%, -50%) scale(1)';
-    cursor.style.boxShadow = '0 0 12px #00ffff, 0 0 24px rgba(0, 255, 255, 0.5)';
   });
 });
+
 
 
 // get help button elems
@@ -132,14 +132,6 @@ export function setSceneBackground(imagePath, scene) {
   });
 }
 
-const bgSelector = document.getElementById('bg-selector');
-bgSelector.addEventListener('change', (e) => {
-  const selectedValue = e.target.value;
-  loader.load(selectedValue, texture => {
-    scene.background = texture;
-  });
-});
-
 
 init();
 
@@ -154,11 +146,50 @@ Promise.all([
   scene.environment = hdrTexture;
   
   const bgSelector = document.getElementById('bg-selector');
-  const defaultBg = bgSelector.value;
+  const selectedSpan = bgSelector.querySelector('.selected');
+  const optionsList = bgSelector.querySelector('.dropdown-options');
 
+  const defaultBg = optionsList.querySelector('.active').dataset.value;
   loader.load(defaultBg, texture => {
     scene.background = texture;
   });
+
+  // Toggle dropdown on bgSelector click (but not when clicking on an option)
+  bgSelector.addEventListener('click', (e) => {
+    // Ignore clicks on <li> items inside dropdown
+    if (e.target.tagName.toLowerCase() === 'li') return;
+    optionsList.classList.toggle('open');
+  });
+
+  // Cursor changes on dropdown hover
+  optionsList.addEventListener('mouseenter', () => {
+    cursor.classList.add('cursor-square');
+  });
+  optionsList.addEventListener('mouseleave', () => {
+    cursor.classList.remove('cursor-square');
+  });
+
+  // Handle option selection
+  optionsList.querySelectorAll('li').forEach(option => {
+    option.addEventListener('click', (e) => {
+      const selectedValue = option.dataset.value;
+
+      // Update UI
+      optionsList.querySelectorAll('li').forEach(li => li.classList.remove('active'));
+      option.classList.add('active');
+      selectedSpan.textContent = option.textContent;
+      optionsList.classList.remove('open');
+
+      // Load background
+      loader.load(selectedValue, texture => {
+        scene.background = texture;
+      });
+
+      // Prevent bgSelector click from also toggling the dropdown again
+      e.stopPropagation();
+    });
+  });
+
 
   materials = loadedMaterials;
 
@@ -275,26 +306,37 @@ function init() {
   // Mouse controls
   window.addEventListener('mousedown', (e) => {
     if (isClickOnUI(e)) return;
-    isDragging = true;
+    dragInitiated = true;
     startX = e.clientX;
     startY = e.clientY;
   });
 
   window.addEventListener('mouseup', (e) => {
-    if (isDragging) {
-      isDragging = false;
-      if (!isClickOnUI(e)) {
-        snapRotation();
-      }
+    if (isDragging && !isClickOnUI(e)) {
+      snapRotation();
     }
+  
+    isDragging = false;
+    dragInitiated = false;
+    cursor.classList.remove('grabbing');
   });
 
   window.addEventListener('mousemove', (e) => {
-
     cursor.style.top = `${e.clientY}px`;
     cursor.style.left = `${e.clientX}px`;
 
+    if (dragInitiated && !isDragging) {
+      const distX = Math.abs(e.clientX - startX);
+      const distY = Math.abs(e.clientY - startY);
+      if (distX > DRAG_THRESHOLD || distY > DRAG_THRESHOLD) {
+        isDragging = true;
+        cursor.classList.add('grabbing');
+      }
+    }
+
+
     if (!isDragging) return;
+
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
 

@@ -56,6 +56,27 @@
   }
 }
 
+/* 4px double / 3px dotted -- hard-light / exclusion / difference   */
+#custom-cursor.grabbing {
+  background-color: rgba(0, 0, 0, 0.4); /* darker core */
+  border: 4px double #00ffff;          /* change border style */
+  transform: translate(-50%, -50%) scale(1.2) rotate(45deg); /* subtle rotation */
+  box-shadow: 0 0 12px #00ffff, 0 0 32px rgba(0, 255, 255, 0.6), inset 0 0 6px #00ffff;
+  animation: corePulse 0.6s infinite ease-in-out;
+  mix-blend-mode: exclusion;
+}
+
+@keyframes corePulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1.2) rotate(45deg);
+    background-color: rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3) rotate(45deg);
+    background-color: rgba(0, 255, 255, 0.356);
+  }
+}
+
 
     #github-logo {
       width: 25px;
@@ -96,7 +117,7 @@
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
-    background: rgba(119, 119, 119, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     color: #fff;
     border-radius: 12px;
     font-size: 15px;
@@ -166,26 +187,6 @@
 }
 
 
-#click-hint {
-  display: none;
-  position: absolute;
-  top: 50%;
-  left: 20px;
-  transform: translateY(-50%);
-  align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  background: rgba(119, 119, 119, 0.6);
-  color: #fff;
-  border-radius: 12px;
-  font-size: 15px;
-  z-index: 1000;
-  pointer-events: none;
-  animation: none;
-  opacity: 0;
-}
-
-
 
   #click-hint {
   display: none;
@@ -196,7 +197,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: rgba(119, 119, 119, 0.6);
+  background: rgba(0, 0, 0, 0.6);
   color: #fff;
   border-radius: 12px;
   font-size: 15px;
@@ -339,23 +340,95 @@
   right: 1rem;
   z-index: 10000;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  background: rgba(0, 0, 0, 0.6);
-  color: #00ffff;
+  font-size: 1.2rem;
   font-family: 'Orbitron', sans-serif;
-  font-size: 1rem;
+  color: #00ffff;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 255, 255, 0.3);
   border-radius: 6px;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
   backdrop-filter: blur(8px);
   transition: all 0.3s ease;
+  user-select: none;
   cursor: none;
 }
+
 
 #bg-selector:hover {
   border-color: #00ffff;
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
   cursor: none;
 }
+
+
+.custom-dropdown {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  font-family: 'Orbitron', sans-serif;
+  color: #00ffff;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: none;
+  user-select: none;
+}
+
+.custom-dropdown .selected {
+  display: block;
+  cursor: none;
+  width: 100%;
+  text-align: center;
+  font-size: 1.2rem;
+  min-width: 1.5ch; /* Ensures enough space even for narrow digits like '1' */
+  box-sizing: border-box;
+}
+
+.custom-dropdown .dropdown-options {
+  display: none;
+  list-style: none;
+  margin-top: 15px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 100%;
+}
+
+.custom-dropdown .dropdown-options.open {
+  display: block;
+  text-align: center;
+}
+
+.custom-dropdown .dropdown-options li {
+  padding: 0.5rem 0.75rem;
+  cursor: none;
+  transition: background 0.3s ease;
+}
+
+.custom-dropdown .dropdown-options li:hover,
+.custom-dropdown .dropdown-options li.active {
+  background-color: rgba(0, 255, 255, 0.2);
+}
+
+
+/* Custom cursor square variant */
+.cursor-square {
+  width: 15px !important;
+  height: 15px !important;
+  border-radius: 3px !important;
+  background-color: rgba(0, 255, 255, 0.3) !important;
+  transform: translate(-50%, -50%) scale(1.1) !important;
+  box-shadow: 0 0 10px #00ffff, 0 0 20px rgba(0, 255, 255, 0.5) !important;
+}
+
 
 #help-button {
   position: fixed;
@@ -422,6 +495,7 @@
   margin-bottom: 0.7rem;
 }
 
+
 </style>
 </head>
 <body>
@@ -453,16 +527,19 @@
   </ul>
 </div>
 
-<select id="bg-selector" class="clickable">
-  <option value="/fu1.jpg" selected>1</option>
-  <option value="/fu2.jpg">2</option>
-  <option value="/fu3.png">3</option>
-  <option value="/fu4.jpg">4</option>
-  <option value="/fu5.jpg">5</option>
-  <option value="/fu6.jpg">6</option>
-  <option value="/fu7.jpg">7</option>
-  <option value="/fu8.jpg">8</option>
-</select>
+<div id="bg-selector" class="custom-dropdown clickable">
+  <span class="selected">1</span>
+  <ul class="dropdown-options">
+    <li data-value="/fu1.jpg" class="active">1</li>
+    <li data-value="/fu2.jpg">2</li>
+    <li data-value="/fu3.png">3</li>
+    <li data-value="/fu4.jpg">4</li>
+    <li data-value="/fu5.jpg">5</li>
+    <li data-value="/fu6.jpg">6</li>
+    <li data-value="/fu7.jpg">7</li>
+    <li data-value="/fu8.jpg">8</li>
+  </ul>
+</div>
 
 <div id="loading-screen">
   <div class="cube-loader">
