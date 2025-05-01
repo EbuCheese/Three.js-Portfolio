@@ -80,13 +80,37 @@ const projects = [
   { image: '/lime.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project6', name: 'Back (-Z)' }
 ];
 
+// BG to HDRI mapping
+const bgToHDRMap = {
+  "/fu1.jpg": "/hdri2.hdr",
+  "/fu2.jpg": "/hdri1.hdr",
+  "/fu3.png": "/hdri3.hdr",
+  "/fu4.jpg": "/hdri4.hdr",
+  "/fu5.jpg": "/hdri5.hdr",
+  "/fu6.jpg": "/hdri6.hdr",
+  "/fu7.jpg": "/hdri7.hdr",
+  "/fu8.jpg": "/hdri8.hdr",
+};
+
+let materials = [];
+const materialAdjustments = {
+  '/fu1.jpg': { metalness: 0.95, roughness: 0.15, envMapIntensity: 1.2 },
+  '/fu2.jpg': { metalness: 0.8, roughness: 0.3, envMapIntensity: 0.8 },
+  '/fu3.png': { metalness: 0.6, roughness: 0.3, envMapIntensity: 0.6 },
+  '/fu4.jpg': { metalness: 0.9, roughness: 0.2, envMapIntensity: 1.0 },
+  '/fu5.jpg': { metalness: 0.6, roughness: 0.3, envMapIntensity: 0.8 },
+  '/fu6.jpg': { metalness: 0.95, roughness: 0.1, envMapIntensity: 1.5 },
+  '/fu7.jpg': { metalness: 1, roughness: 0.2, envMapIntensity: 1.0 },
+  '/fu8.jpg': { metalness: 0.75, roughness: 0.3, envMapIntensity: 0.65 },
+};
+
 // Shuffle and assign 6 random projects
 const shuffled = [...projects].sort(() => 0.5 - Math.random());
 console.log(shuffled);
 
 const orderedShuffled = [
-  shuffled[1], // right -> shuffled[1] (not 0!)
-  shuffled[0], // left -> shuffled[0]
+  shuffled[1], // right 
+  shuffled[0], // left
   shuffled[2], // top
   shuffled[3], // bottom
   shuffled[4], // front
@@ -125,21 +149,49 @@ function loadHDR(path) {
   });
 }
 
+async function updateSceneEnvironment(bgPath) {
+  const loaderEl = document.getElementById('bg-loading');
+  loaderEl.classList.remove('hidden');
 
-export function setSceneBackground(imagePath, scene) {
-  loader.load(imagePath, texture => {
-    scene.background = texture;
+  const hdrPath = bgToHDRMap[bgPath];
+  const adjustments = materialAdjustments[bgPath];
+  if (!hdrPath) return;
+
+  // Load background
+  const bgPromise = new Promise(resolve => {
+    loader.load(bgPath, texture => {
+      scene.background = texture;
+      resolve();
+    });
   });
+
+  // Load HDR environment
+  const hdrTexture = await loadHDR(hdrPath);
+  scene.environment = hdrTexture;
+
+  // Apply to all relevant materials
+  materials.forEach(mat => {
+    mat.envMap = hdrTexture;
+    mat.envMapIntensity = adjustments?.envMapIntensity ?? mat.envMapIntensity;
+    mat.metalness = adjustments?.metalness ?? mat.metalness;
+    mat.roughness = adjustments?.roughness ?? mat.roughness;
+    mat.needsUpdate = true;
+  });
+  
+
+  await bgPromise;
+
+  // Hide loader
+  loaderEl.classList.add('hidden');
 }
 
 
 init();
 
 
-let materials = [];
 // Load everything before starting the scene
 Promise.all([
-  loadHDR('/test2.hdr'),
+  loadHDR('/hdri2.hdr'),
   Promise.all(orderedShuffled.map(p => createMaterial(p.image)))
 ]).then(([hdrTexture, loadedMaterials]) => {
   // Set the HDR environment
@@ -184,6 +236,9 @@ Promise.all([
       loader.load(selectedValue, texture => {
         scene.background = texture;
       });
+
+      //update the scene env
+      updateSceneEnvironment(selectedValue);
 
       // Prevent bgSelector click from also toggling the dropdown again
       e.stopPropagation();
@@ -685,7 +740,7 @@ function showPopupPlane(faceIndex) {
 
 
   const project = shuffled[faceIndex];
-  console.log('Popup debug – faceIndex:', faceIndex, 'project:', project);
+  console.log('Popup debug - faceIndex:', faceIndex, 'project:', project);
 
   let material;
 
