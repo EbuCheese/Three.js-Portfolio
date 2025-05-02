@@ -96,10 +96,10 @@ let materials = [];
 const materialAdjustments = {
   '/fu1.jpg': { metalness: 0.95, roughness: 0.15, envMapIntensity: 1.2 },
   '/fu2.jpg': { metalness: 0.8, roughness: 0.3, envMapIntensity: 0.8 },
-  '/fu3.png': { metalness: 0.6, roughness: 0.3, envMapIntensity: 0.6 },
+  '/fu3.png': { metalness: 0.6, roughness: 0.25, envMapIntensity: 0.5 },
   '/fu4.jpg': { metalness: 0.9, roughness: 0.2, envMapIntensity: 1.0 },
   '/fu5.jpg': { metalness: 0.6, roughness: 0.3, envMapIntensity: 0.8 },
-  '/fu6.jpg': { metalness: 0.95, roughness: 0.1, envMapIntensity: 1.5 },
+  '/fu6.jpg': { metalness: 0.8, roughness: 0.3, envMapIntensity: 1 },
   '/fu7.jpg': { metalness: 1, roughness: 0.2, envMapIntensity: 1.0 },
   '/fu8.jpg': { metalness: 0.75, roughness: 0.3, envMapIntensity: 0.65 },
 };
@@ -147,6 +147,18 @@ function loadHDR(path) {
       resolve(texture);
     });
   });
+}
+
+// close popupPlanes
+function closePopup() {
+  if (popupPlane) cube.remove(popupPlane);
+  if (borderPlane) cube.remove(borderPlane);
+  if (shadowPlane) cube.remove(shadowPlane);
+
+  popupPlane = null;
+  borderPlane = null;
+  shadowPlane = null;
+  isPopupActive = false;
 }
 
 async function updateSceneEnvironment(bgPath) {
@@ -237,8 +249,15 @@ Promise.all([
         scene.background = texture;
       });
 
+      // close the popups
+      closePopup();
+      updateLink(1);
+
       //update the scene env
       updateSceneEnvironment(selectedValue);
+
+      // rotate back to default
+      targetRotation = { x: 0, y: 3.89 };
 
       // Prevent bgSelector click from also toggling the dropdown again
       e.stopPropagation();
@@ -482,33 +501,34 @@ function snapRotation() {
 }
 
 function getFrontFaceIndex(rotX, rotY) {
-  // Normalize rotations to 0-3 range (representing 0, 90, 180, 270 degrees)
   const normalizedX = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
   const normalizedY = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4;
-  
-  
+
   console.log('Rotation debug:', {
-    rawX: rotX, 
-    rawY: rotY, 
-    normalizedX, 
+    rawX: rotX,
+    rawY: rotY,
+    normalizedX,
     normalizedY
   });
 
-  // Standard cube mapping logic
-  if (normalizedX === 1) return CUBE_FACES.TOP;    // Top face
-  if (normalizedX === 3) return CUBE_FACES.BOTTOM; // Bottom face
-  
-  // Handle front/back/left/right based on Y rotation
-  if (normalizedX === 0 || normalizedX === 2) {
-    // Y-rotation determines which of the side faces we see
-    if (normalizedY === 0) return CUBE_FACES.FRONT; // Front
-    if (normalizedY === 1) return CUBE_FACES.RIGHT; // Right
-    if (normalizedY === 2) return CUBE_FACES.BACK;  // Back
-    if (normalizedY === 3) return CUBE_FACES.LEFT;  // Left
+  if (normalizedX === 1) return CUBE_FACES.TOP;
+  if (normalizedX === 3) return CUBE_FACES.BOTTOM;
+
+  // Get the default face based on Y rotation
+  const faceMap = [CUBE_FACES.FRONT, CUBE_FACES.RIGHT, CUBE_FACES.BACK, CUBE_FACES.LEFT];
+
+  // If upside down, reverse the side face directions
+  if (normalizedX === 2) {
+    // 180° X rotation inverts the Y-axis perspective
+    const flippedMap = [CUBE_FACES.BACK, CUBE_FACES.LEFT, CUBE_FACES.FRONT, CUBE_FACES.RIGHT];
+    return flippedMap[normalizedY];
   }
-  
-  return CUBE_FACES.FRONT; // Default to front if something goes wrong
+
+  return faceMap[normalizedY];
 }
+
+
+
 
 // Function to update the link btn inside the popupPlane for project face
 function updateLink(faceIndex) {
