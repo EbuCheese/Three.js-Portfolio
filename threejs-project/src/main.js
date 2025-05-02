@@ -16,6 +16,7 @@ const CUBE_FACES = {
 };
 
 let scene, camera, renderer, composer, cube, outlineMesh;
+let initialSnap = false;
 let isPopupActive = false;
 let hasShownClickHint = false;
 let startX = 0;
@@ -160,6 +161,7 @@ async function updateSceneEnvironment(bgPath) {
 
   // rotate back to default
   targetRotation = { x: 0, y: 3.89 };
+  initialSnap = false;
 
   const hdrPath = bgToHDRMap[bgPath];
   const adjustments = materialAdjustments[bgPath];
@@ -445,6 +447,9 @@ function init() {
 }
 
 function snapRotation() {
+
+  initialSnap = true;
+
   const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
   const snappedY = Math.round(targetRotation.y / (Math.PI / 2)) * (Math.PI / 2);
 
@@ -548,6 +553,7 @@ function updateLink(faceIndex) {
 
 
 function onDoubleClick(event) {
+  if (!initialSnap) return;
   if (isDragging || isClickOnUI(event)) return;
 
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
