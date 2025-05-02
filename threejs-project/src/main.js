@@ -15,7 +15,7 @@ const CUBE_FACES = {
   BACK: 5    // -Z
 };
 
-let scene, camera, renderer, composer, cube;
+let scene, camera, renderer, composer, cube, outlineMesh;
 let isPopupActive = false;
 let hasShownClickHint = false;
 let startX = 0;
@@ -149,21 +149,17 @@ function loadHDR(path) {
   });
 }
 
-// close popupPlanes
-function closePopup() {
-  if (popupPlane) cube.remove(popupPlane);
-  if (borderPlane) cube.remove(borderPlane);
-  if (shadowPlane) cube.remove(shadowPlane);
-
-  popupPlane = null;
-  borderPlane = null;
-  shadowPlane = null;
-  isPopupActive = false;
-}
 
 async function updateSceneEnvironment(bgPath) {
   const loaderEl = document.getElementById('bg-loading');
   loaderEl.classList.remove('hidden');
+
+  // close the popups
+  hidePopup();
+  updateLink(1);
+
+  // rotate back to default
+  targetRotation = { x: 0, y: 3.89 };
 
   const hdrPath = bgToHDRMap[bgPath];
   const adjustments = materialAdjustments[bgPath];
@@ -190,8 +186,8 @@ async function updateSceneEnvironment(bgPath) {
     mat.needsUpdate = true;
   });
   
-
   await bgPromise;
+
 
   // Hide loader
   loaderEl.classList.add('hidden');
@@ -249,15 +245,8 @@ Promise.all([
         scene.background = texture;
       });
 
-      // close the popups
-      closePopup();
-      updateLink(1);
-
       //update the scene env
       updateSceneEnvironment(selectedValue);
-
-      // rotate back to default
-      targetRotation = { x: 0, y: 3.89 };
 
       // Prevent bgSelector click from also toggling the dropdown again
       e.stopPropagation();
@@ -299,7 +288,7 @@ Promise.all([
     depthWrite: false
   });
 
-  const outlineMesh = new THREE.Mesh(cube.geometry.clone(), outlineShaderMaterial);
+  outlineMesh = new THREE.Mesh(cube.geometry.clone(), outlineShaderMaterial);
   outlineMesh.scale.multiplyScalar(1.02);
   cube.add(outlineMesh);
 
@@ -559,22 +548,23 @@ function updateLink(faceIndex) {
 
 
 function onDoubleClick(event) {
-  // Don’t interfere while dragging or when clicking UI elements
   if (isDragging || isClickOnUI(event)) return;
 
-  // Convert mouse to normalized device coords
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  // Raycast against the cube (including its outline/shadow children)
   raycaster.setFromCamera(mouse, camera);
   const hits = raycaster.intersectObject(cube, true);
+
   if (!hits.length) return;
 
-  // Geometry face → raw face index (0–5)
-  const raw = Math.floor(hits[0].faceIndex / 2);
+  // Filter out the outlineMesh so it can't trigger popups
+  const validHit = hits.find(hit => hit.object !== outlineMesh);
+  if (!validHit) return;
 
-  // Map raw face to your logical CUBE_FACES enum
+  // Geometry face → raw face index (0–5)
+  const raw = Math.floor(validHit.faceIndex / 2);
+
   const faceLookup = [
     CUBE_FACES.RIGHT,   // raw 0 → +X
     CUBE_FACES.LEFT,    // raw 1 → -X
@@ -585,14 +575,11 @@ function onDoubleClick(event) {
   ];
   const faceIndex = faceLookup[raw];
 
-  // If a popup is already open:
   if (popupPlane) {
     if (openedFaceIndex === faceIndex) {
-      // clicking same face again → do nothing
-      return;
+      return; // clicking same face again → do nothing
     } else {
-      // clicking a different face while popup open → just close it
-      hidePopup();
+      hidePopup(); // different face → close current
       openedFaceIndex = null;
       return;
     }
@@ -603,6 +590,7 @@ function onDoubleClick(event) {
   updateLink(faceIndex);
   openedFaceIndex = faceIndex;
 }
+
 
 
 function hidePopup() {
