@@ -685,7 +685,6 @@ function hidePopup() {
 }
 
 
-
 // Create video controls texture
 function createVideoControlsTexture() {
   // Create a canvas for our controls
@@ -696,15 +695,20 @@ function createVideoControlsTexture() {
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background with transparency
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // original Background with transparency
+
+  // ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  // ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  // REDESIGNED CONTROL AREAS
-  // Moved buttons slightly left and made them less vertically squished
-  // Centered both buttons vertically within the control bar
+  // Background with gradient for a more refined look
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, 'rgba(20, 20, 20, 0.7)');
+  gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const playButtonRect = { x: 8, y: 8, width: 48, height: 48 };
-  const muteButtonRect = { x: 54, y: 8, width: 48, height: 48 };
+  const muteButtonRect = { x: 45, y: 5, width: 48, height: 48 };
   // Extended the progress bar to start closer to the buttons
   const progressBarRect = { x: 120, y: 24, width: 380, height: 16 };
   
@@ -720,78 +724,105 @@ function createVideoControlsTexture() {
   ctx.beginPath();
   if (videoPlaying) {
     // Pause icon - better spacing between bars
-    ctx.fillRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 24);
-    ctx.fillRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 24);
+    ctx.fillRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 26);
+    ctx.fillRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 26);
   } else {
     // Play triangle - better proportioned
-    ctx.moveTo(playButtonRect.x + 15, playButtonRect.y + 12);
-    ctx.lineTo(playButtonRect.x + 15, playButtonRect.y + 36);
-    ctx.lineTo(playButtonRect.x + 35, playButtonRect.y + 24);
+    ctx.beginPath();
+    ctx.moveTo(playButtonRect.x + 16, playButtonRect.y + 7);
+    ctx.lineTo(playButtonRect.x + 16, playButtonRect.y + 40);
+    ctx.lineTo(playButtonRect.x + 36, playButtonRect.y + 24);
+    ctx.closePath();
+    ctx.fill();
   }
-  ctx.fill();
   
-  // YOUTUBE/TWITCH STYLE SPEAKER ICON
   // Base speaker design - triangular shape with base
   ctx.beginPath();
   // Base (rectangle)
-  ctx.fillRect(muteButtonRect.x + 14, muteButtonRect.y + 22, 6, 8);
+  ctx.fillRect(muteButtonRect.x + 22, muteButtonRect.y + 22, 13, 13);
   
   // Cone (triangle)
   ctx.beginPath();
-  ctx.moveTo(muteButtonRect.x + 20, muteButtonRect.y + 18);  // Top connection
-  ctx.lineTo(muteButtonRect.x + 30, muteButtonRect.y + 12);  // Top point
-  ctx.lineTo(muteButtonRect.x + 30, muteButtonRect.y + 38);  // Bottom point
-  ctx.lineTo(muteButtonRect.x + 20, muteButtonRect.y + 32);  // Bottom connection
+  ctx.moveTo(muteButtonRect.x + 25, muteButtonRect.y + 25);  // Top connection
+  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 8.5);  // Top point
+  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 45);  // Bottom point
+  ctx.lineTo(muteButtonRect.x + 25, muteButtonRect.y + 32);  // Bottom connection
   ctx.closePath();
   ctx.fill();
   
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#ffffff';
+// amount to shift waves/X
+const waveOffsetX = 5;
+const waveOffsetY = 2;
 
-  // Sound waves or mute indicator - YouTube/Twitch style
-  if (!videoMuted) {
-    // Sound waves - YouTube style curved lines
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    // First wave (smallest)
-    ctx.moveTo(muteButtonRect.x + 34, muteButtonRect.y + 21);
-    ctx.quadraticCurveTo(
-      muteButtonRect.x + 38, muteButtonRect.y + 25,
-      muteButtonRect.x + 34, muteButtonRect.y + 29
-    );
-    ctx.stroke();
-    
-    // Second wave (medium)
-    ctx.beginPath();
-    ctx.moveTo(muteButtonRect.x + 37, muteButtonRect.y + 18);
-    ctx.quadraticCurveTo(
-      muteButtonRect.x + 43, muteButtonRect.y + 25,
-      muteButtonRect.x + 37, muteButtonRect.y + 32
-    );
-    ctx.stroke();
-    
-    // Third wave (largest)
-    ctx.beginPath();
-    ctx.moveTo(muteButtonRect.x + 40, muteButtonRect.y + 15);
-    ctx.quadraticCurveTo(
-      muteButtonRect.x + 48, muteButtonRect.y + 25,
-      muteButtonRect.x + 40, muteButtonRect.y + 35
-    );
-    ctx.stroke();
-  } else {
-    // Mute symbol - X mark
-    ctx.lineWidth = 2;
-    // First line of X
-    ctx.beginPath();
-    ctx.moveTo(muteButtonRect.x + 34, muteButtonRect.y + 17);
-    ctx.lineTo(muteButtonRect.x + 42, muteButtonRect.y + 33);
-    ctx.stroke();
-    // Second line of X
-    ctx.beginPath();
-    ctx.moveTo(muteButtonRect.x + 42, muteButtonRect.y + 17);
-    ctx.lineTo(muteButtonRect.x + 34, muteButtonRect.y + 33);
-    ctx.stroke();
-  }
+ctx.lineWidth = 2;
+ctx.strokeStyle = '#ffffff';
+
+if (!videoMuted) {
+  // First wave
+  ctx.beginPath();
+  ctx.moveTo(
+    muteButtonRect.x + 34 + waveOffsetX,
+    muteButtonRect.y + 21 + waveOffsetY
+  );
+  ctx.quadraticCurveTo(
+    muteButtonRect.x + 38 + waveOffsetX,
+    muteButtonRect.y + 25 + waveOffsetY,
+    muteButtonRect.x + 34 + waveOffsetX,
+    muteButtonRect.y + 29 + waveOffsetY
+  );
+  ctx.stroke();
+
+  // Second wave
+  ctx.beginPath();
+  ctx.moveTo(
+    muteButtonRect.x + 37 + waveOffsetX,
+    muteButtonRect.y + 18 + waveOffsetY
+  );
+  ctx.quadraticCurveTo(
+    muteButtonRect.x + 43 + waveOffsetX,
+    muteButtonRect.y + 25 + waveOffsetY,
+    muteButtonRect.x + 37 + waveOffsetX,
+    muteButtonRect.y + 32 + waveOffsetY
+  );
+  ctx.stroke();
+
+  // Third wave
+  ctx.beginPath();
+  ctx.moveTo(
+    muteButtonRect.x + 40 + waveOffsetX,
+    muteButtonRect.y + 15 + waveOffsetY
+  );
+  ctx.quadraticCurveTo(
+    muteButtonRect.x + 48 + waveOffsetX,
+    muteButtonRect.y + 25 + waveOffsetY,
+    muteButtonRect.x + 40 + waveOffsetX,
+    muteButtonRect.y + 35 + waveOffsetY
+  );
+  ctx.stroke();
+} else {
+  // X mark
+  ctx.beginPath();
+  ctx.moveTo(
+    muteButtonRect.x + 34 + waveOffsetX,
+    muteButtonRect.y + 17 + waveOffsetY
+  );
+  ctx.lineTo(
+    muteButtonRect.x + 42 + waveOffsetX,
+    muteButtonRect.y + 33 + waveOffsetY
+  );
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(
+    muteButtonRect.x + 42 + waveOffsetX,
+    muteButtonRect.y + 17 + waveOffsetY
+  );
+  ctx.lineTo(
+    muteButtonRect.x + 34 + waveOffsetX,
+    muteButtonRect.y + 33 + waveOffsetY
+  );
+  ctx.stroke();
+}
   
   // Progress bar background
   ctx.fillStyle = '#444444';
