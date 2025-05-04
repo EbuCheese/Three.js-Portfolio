@@ -27,6 +27,16 @@ let easing = 0.1;
 let bloomPass;
 let openedFaceIndex = null;  // Global opened face
 
+let videoControlsActive = false;
+let videoPlaying = true;
+let videoMuted = true;
+let videoDuration = 0;
+let videoCurrentTime = 0;
+let videoControls = null;
+let videoProgressBar = null;
+let videoButtons = {};
+let currentVideo = null;
+
 let isDragging = false;
 let dragInitiated = false;
 const DRAG_THRESHOLD = 3;
@@ -196,6 +206,32 @@ async function updateSceneEnvironment(bgPath) {
 }
 
 
+// Fix the event listeners for single click handling
+function setupVideoControlEvents() {
+  // Remove any existing listeners to avoid duplicates
+  window.removeEventListener('click', handleVideoClick);
+  window.removeEventListener('dblclick', onDoubleClick);
+  
+  // Add these in the correct order - SINGLE click first, then double click
+  window.addEventListener('click', handleVideoClick);
+  window.addEventListener('dblclick', onDoubleClick);
+}
+
+// New handler just for video controls
+function handleVideoClick(event) {
+  // Skip if clicking on UI elements
+  if (isClickOnUI(event)) return;
+
+  // Check if video controls were clicked
+  if (videoControlsActive && handleVideoControlClick(event)) {
+    // Prevent further processing if controls were clicked
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+}
+
+
 init();
 
 
@@ -348,6 +384,7 @@ function init() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   document.body.appendChild(renderer.domElement);
 
+  setupVideoControlEvents();
 
   // === POSTPROCESSING ===
   const renderPass = new RenderPass(scene, camera);
@@ -366,6 +403,7 @@ function init() {
   // EVENTS //
   
   // Click Event
+  window.removeEventListener('dblclick', onDoubleClick);
   window.addEventListener('dblclick', onDoubleClick);
 
   // Mouse controls
@@ -447,7 +485,6 @@ function init() {
 }
 
 function snapRotation() {
-
   initialSnap = true;
 
   const snappedX = Math.round(targetRotation.x / (Math.PI / 2)) * (Math.PI / 2);
@@ -467,6 +504,11 @@ function snapRotation() {
     borderPlane = null;
     shadowPlane = null;
     isPopupActive = false;
+
+    if (videoControls) {
+      removeVideoControls();
+    }
+
   }
 
   // logic to show hints for cube interaction
@@ -556,6 +598,10 @@ function onDoubleClick(event) {
   if (!initialSnap) return;
   if (isDragging || isClickOnUI(event)) return;
 
+  if (handleVideoControlClick(event)) {
+    return; // Already handled by video controls
+  }
+
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -603,6 +649,8 @@ function hidePopup() {
   if (popupPlane) {
     bloomPass.strength = 0.2;
 
+    removeVideoControls();
+
     gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
       x: 0,
       y: 0,
@@ -635,6 +683,358 @@ function hidePopup() {
     });
   }
 }
+
+
+
+// Create video controls texture
+function createVideoControlsTexture() {
+  // Create a canvas for our controls
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background with transparency
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // REDESIGNED CONTROL AREAS
+  // Moved buttons slightly left and made them less vertically squished
+  // Centered both buttons vertically within the control bar
+  const playButtonRect = { x: 8, y: 8, width: 48, height: 48 };
+  const muteButtonRect = { x: 54, y: 8, width: 48, height: 48 };
+  // Extended the progress bar to start closer to the buttons
+  const progressBarRect = { x: 120, y: 24, width: 380, height: 16 };
+  
+  // Store these for interaction
+  videoButtons = {
+    play: playButtonRect,
+    mute: muteButtonRect,
+    progress: progressBarRect
+  };
+  
+  // Draw Play button - centered in its area
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  if (videoPlaying) {
+    // Pause icon - better spacing between bars
+    ctx.fillRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 24);
+    ctx.fillRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 24);
+  } else {
+    // Play triangle - better proportioned
+    ctx.moveTo(playButtonRect.x + 15, playButtonRect.y + 12);
+    ctx.lineTo(playButtonRect.x + 15, playButtonRect.y + 36);
+    ctx.lineTo(playButtonRect.x + 35, playButtonRect.y + 24);
+  }
+  ctx.fill();
+  
+  // YOUTUBE/TWITCH STYLE SPEAKER ICON
+  // Base speaker design - triangular shape with base
+  ctx.beginPath();
+  // Base (rectangle)
+  ctx.fillRect(muteButtonRect.x + 14, muteButtonRect.y + 22, 6, 8);
+  
+  // Cone (triangle)
+  ctx.beginPath();
+  ctx.moveTo(muteButtonRect.x + 20, muteButtonRect.y + 18);  // Top connection
+  ctx.lineTo(muteButtonRect.x + 30, muteButtonRect.y + 12);  // Top point
+  ctx.lineTo(muteButtonRect.x + 30, muteButtonRect.y + 38);  // Bottom point
+  ctx.lineTo(muteButtonRect.x + 20, muteButtonRect.y + 32);  // Bottom connection
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ffffff';
+
+  // Sound waves or mute indicator - YouTube/Twitch style
+  if (!videoMuted) {
+    // Sound waves - YouTube style curved lines
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    // First wave (smallest)
+    ctx.moveTo(muteButtonRect.x + 34, muteButtonRect.y + 21);
+    ctx.quadraticCurveTo(
+      muteButtonRect.x + 38, muteButtonRect.y + 25,
+      muteButtonRect.x + 34, muteButtonRect.y + 29
+    );
+    ctx.stroke();
+    
+    // Second wave (medium)
+    ctx.beginPath();
+    ctx.moveTo(muteButtonRect.x + 37, muteButtonRect.y + 18);
+    ctx.quadraticCurveTo(
+      muteButtonRect.x + 43, muteButtonRect.y + 25,
+      muteButtonRect.x + 37, muteButtonRect.y + 32
+    );
+    ctx.stroke();
+    
+    // Third wave (largest)
+    ctx.beginPath();
+    ctx.moveTo(muteButtonRect.x + 40, muteButtonRect.y + 15);
+    ctx.quadraticCurveTo(
+      muteButtonRect.x + 48, muteButtonRect.y + 25,
+      muteButtonRect.x + 40, muteButtonRect.y + 35
+    );
+    ctx.stroke();
+  } else {
+    // Mute symbol - X mark
+    ctx.lineWidth = 2;
+    // First line of X
+    ctx.beginPath();
+    ctx.moveTo(muteButtonRect.x + 34, muteButtonRect.y + 17);
+    ctx.lineTo(muteButtonRect.x + 42, muteButtonRect.y + 33);
+    ctx.stroke();
+    // Second line of X
+    ctx.beginPath();
+    ctx.moveTo(muteButtonRect.x + 42, muteButtonRect.y + 17);
+    ctx.lineTo(muteButtonRect.x + 34, muteButtonRect.y + 33);
+    ctx.stroke();
+  }
+  
+  // Progress bar background
+  ctx.fillStyle = '#444444';
+  ctx.fillRect(progressBarRect.x, progressBarRect.y, progressBarRect.width, progressBarRect.height);
+  
+  // Progress indicator
+  if (videoDuration > 0) {
+    const progress = videoCurrentTime / videoDuration;
+    ctx.fillStyle = '#00ffff';
+    ctx.fillRect(
+      progressBarRect.x, 
+      progressBarRect.y, 
+      progressBarRect.width * progress, 
+      progressBarRect.height
+    );
+  }
+  
+  // Create texture from canvas
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  
+  return { texture, canvas };
+}
+
+// video controls sizing - unchanged
+const controlsWidthRatio = 1;  
+const controlsHeight = 0.1; 
+
+// Improved function to add video controls to the popup
+function addVideoControls(videoElement, popupPlane) {
+  // Store reference to current video
+  currentVideo = videoElement;
+  videoDuration = videoElement.duration || 0;
+  videoCurrentTime = videoElement.currentTime || 0;
+  
+  // Reset video state when opening popup
+  videoPlaying = true;
+  videoElement.play().catch(e => console.warn("Failed to play video:", e));
+  videoMuted = true;
+  videoElement.muted = true;
+
+  // Create controls texture
+  const { texture, canvas } = createVideoControlsTexture();
+  
+  // Create plane for controls
+  const controlsWidth = popupWidth * controlsWidthRatio;
+  const controlsGeometry = new THREE.PlaneGeometry(controlsWidth, controlsHeight);
+  const controlsMaterial = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false
+  });
+  
+  videoControls = new THREE.Mesh(controlsGeometry, controlsMaterial);
+  
+  // Position controls at the bottom of the video
+  videoControls.position.copy(popupPlane.position);
+  videoControls.rotation.copy(popupPlane.rotation);
+  
+  // Offset to bottom of video
+  const localOffset = new THREE.Vector3(0, -popupHeight/2 + 0.05, 0.001);
+  videoControls.position.add(
+    localOffset.applyQuaternion(popupPlane.quaternion)
+  );
+  
+  // Ensure controls are visible and properly sized from the start
+  videoControls.visible = true; 
+  videoControls.scale.set(1, 1, 1);
+  videoControls.renderOrder = 1000; // Ensure it renders on top
+  
+  cube.add(videoControls);
+  
+  console.log("Video controls added:", {
+    controlsVisible: videoControls.visible,
+    controlsPosition: videoControls.position,
+    videoDuration: videoDuration
+  });
+  
+  // Update video controls canvas when video time updates
+  videoElement.addEventListener('timeupdate', updateVideoProgress);
+  
+  // Get video duration once it's loaded
+  if (isNaN(videoElement.duration) || videoElement.duration === 0) {
+    videoElement.addEventListener('loadedmetadata', () => {
+      videoDuration = videoElement.duration;
+      console.log("Video metadata loaded, duration:", videoDuration);
+      updateVideoControls();
+    });
+  }
+  
+  videoControlsActive = true;
+}
+
+// Regenerate controls texture with current state
+function updateVideoControls() {
+  if (!videoControls) return;
+  
+  const { texture } = createVideoControlsTexture();
+  videoControls.material.map = texture;
+  videoControls.material.needsUpdate = true;
+}
+
+// Improved function to handle video control clicks
+function handleVideoControlClick(event) {
+  if (!videoControlsActive || !videoControls || !currentVideo) {
+    return false;
+  }
+  
+  console.log("Checking video control click...");
+  
+  // Convert screen coordinates to normalized device coordinates
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  
+  // Update the ray with new mouse position
+  raycaster.setFromCamera(mouse, camera);
+  
+  // Check for intersections with controls
+  const intersects = raycaster.intersectObject(videoControls);
+  
+  if (intersects.length > 0) {
+    console.log("Hit video controls at UV:", intersects[0].uv);
+    
+    // Get hit point in UV coordinates (0-1)
+    const uv = intersects[0].uv;
+    
+    // Convert to pixel coordinates on our canvas
+    const x = uv.x * 512;
+    const y = (1 - uv.y) * 64;
+    
+    console.log("Click position on controls:", x, y);
+    
+    // Check which button was clicked
+    if (isPointInRect(x, y, videoButtons.play)) {
+      console.log("Play/pause button clicked");
+      // Play/Pause
+      toggleVideoPlayback();
+      
+    } else if (isPointInRect(x, y, videoButtons.mute)) {
+      console.log("Mute button clicked");
+      // Mute/Unmute
+      toggleVideoMute();
+      
+    } else if (isPointInRect(x, y, videoButtons.progress)) {
+      console.log("Progress bar clicked");
+      // Seek in video
+      const progress = (x - videoButtons.progress.x) / videoButtons.progress.width;
+      seekVideo(progress);
+    }
+    
+    // Prevent the event from being processed further
+    event.stopPropagation();
+    return true;
+  }
+  
+  return false;
+}
+
+function isPointInRect(x, y, rect) {
+  return (
+    x >= rect.x && 
+    x <= rect.x + rect.width && 
+    y >= rect.y && 
+    y <= rect.y + rect.height
+  );
+}
+
+function toggleVideoPlayback() {
+  if (!currentVideo) return;
+  
+  if (videoPlaying) {
+    currentVideo.pause();
+    videoPlaying = false;
+  } else {
+    currentVideo.play().catch(e => console.warn("Failed to play video:", e));
+    videoPlaying = true;
+  }
+  
+  updateVideoControls();
+}
+
+function toggleVideoMute() {
+  if (!currentVideo) return;
+  
+  videoMuted = !videoMuted;
+  currentVideo.muted = videoMuted;
+  updateVideoControls();
+}
+
+function seekVideo(progress) {
+  if (!currentVideo || !videoDuration) return;
+  
+  // Clamp progress between 0 and 1
+  progress = Math.max(0, Math.min(1, progress));
+  
+  // Set current time
+  currentVideo.currentTime = progress * videoDuration;
+  videoCurrentTime = currentVideo.currentTime;
+  
+  updateVideoControls();
+}
+
+function updateVideoProgress() {
+  if (!currentVideo) return;
+  videoCurrentTime = currentVideo.currentTime;
+  updateVideoControls();
+}
+
+// Remove video controls
+function removeVideoControls() {
+  if (videoControls) {
+    gsap.to(videoControls.scale, {
+      x: 0,
+      y: 0,
+      z: 0,
+      duration: 0.3,
+      ease: "back.in(1.7)",
+      onComplete: () => {
+        if (videoControls) {
+          cube.remove(videoControls);
+          videoControls = null;
+        }
+        
+        // Remove event listeners from video
+        if (currentVideo) {
+          currentVideo.removeEventListener('timeupdate', updateVideoProgress);
+          currentVideo = null;
+        }
+        
+        videoControlsActive = false;
+      }
+    });
+  } else {
+    // Even if no videoControls object exists, make sure we reset flags
+    videoControlsActive = false;
+    if (currentVideo) {
+      currentVideo.removeEventListener('timeupdate', updateVideoProgress);
+      currentVideo = null;
+    }
+  }
+}
+
 
 
 // Popup Planes Creation
@@ -692,6 +1092,7 @@ function showPopupPlane(faceIndex) {
   
   // If popup is already active, close it first
   if (popupPlane) {
+    removeVideoControls();
     // Make sure we set a consistent cleanup function
     const cleanupPopup = () => {
       cube.remove(popupPlane);
@@ -757,19 +1158,20 @@ function showPopupPlane(faceIndex) {
   console.log('Popup debug - faceIndex:', faceIndex, 'project:', project);
 
   let material;
+  let videoElement = null;
 
   if (project.video) {
-    const video = document.createElement('video');
-    video.src = project.video;
-    video.loop = true;
-    video.muted = true;
-    video.playsInline = true;
-    video.autoplay = true;
-    video.crossOrigin = 'anonymous';
-    video.load();
-    video.play().catch(e => console.warn("Video failed:", e));
+    videoElement = document.createElement('video');
+    videoElement.src = project.video;
+    videoElement.loop = true;
+    videoElement.muted = true;
+    videoElement.playsInline = true;
+    videoElement.autoplay = true;
+    videoElement.crossOrigin = 'anonymous';
+    videoElement.load();
+    videoElement.play().catch(e => console.warn("Video failed:", e));
 
-    const texture = new THREE.VideoTexture(video);
+    const texture = new THREE.VideoTexture(videoElement);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
@@ -850,6 +1252,10 @@ function showPopupPlane(faceIndex) {
       document.getElementById('link-btn').style.display = 'flex';
       updateLink(faceIndex);
       snapRotation();
+
+      if (videoElement) {
+        addVideoControls(videoElement, popupPlane);
+      }
     }
   });
 
@@ -925,7 +1331,19 @@ function animate() {
     // render 
     composer.render();
 
-    
 }
 
+// Also handle any controls updates in the animation loop
+const originalAnimate = animate;
+animate = function() {
+  originalAnimate();
+  
+  // Update video progress in the animation loop
+  if (videoControlsActive && currentVideo) {
+    if (videoCurrentTime !== currentVideo.currentTime) {
+      videoCurrentTime = currentVideo.currentTime;
+      updateVideoControls();
+    }
+  }
+};
 
