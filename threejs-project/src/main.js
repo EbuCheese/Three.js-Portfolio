@@ -4,7 +4,6 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { gsap } from 'gsap';
-import { TextureLoader } from 'three';
 
 const CUBE_FACES = {
   RIGHT: 0,  // +X
@@ -34,7 +33,6 @@ let videoMuted = true;
 let videoDuration = 0;
 let videoCurrentTime = 0;
 let videoControls = null;
-let videoProgressBar = null;
 let videoButtons = {};
 let currentVideo = null;
 
@@ -61,8 +59,6 @@ document.querySelectorAll('a, button, .clickable').forEach(el => {
     cursor.classList.remove('hovering');
   });
 });
-
-
 
 // get help button elems
 const helpButton = document.getElementById('help-button');
@@ -407,7 +403,7 @@ function init() {
   const renderPass = new RenderPass(scene, camera);
 
     bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    new THREE.Vector2(window.innerWidth/2, window.innerHeight/2),
     0.2, // strength
     0.2, // radius
     0.1 // threshold
@@ -740,7 +736,7 @@ function createVideoControlsTexture() {
     ctx.save();
     ctx.shadowColor = '#00ffff';
     ctx.shadowBlur = 1.25;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.25;
     ctx.strokeStyle = '#00ffff';
     drawFunc(true); // true = draw glow
     ctx.restore();
