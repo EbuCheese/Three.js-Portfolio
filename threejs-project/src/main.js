@@ -27,6 +27,7 @@ let easing = 0.1;
 let bloomPass;
 let openedFaceIndex = null;  // Global opened face
 
+let videoControlsVisible = true;
 let videoControlsActive = false;
 let videoPlaying = true;
 let videoMuted = true;
@@ -205,22 +206,38 @@ async function updateSceneEnvironment(bgPath) {
   loaderEl.classList.add('hidden');
 }
 
+function handleAllClicks(event) {
+  // 1) Never fire during drag or on other UI
+  if (isDragging || isClickOnUI(event)) return;
+  // 2) If controls are active and visible, test them first
+  if (videoControlsActive && videoControlsVisible && handleVideoControlClick(event)) {
+    // control got the click → we’re done
+    return;
+  }
+  // 3) Otherwise test against the video plane
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(popupPlane);
+  if (hits.length > 0) {
+    // toggle controls
+    toggleControlsVisibility();
+  }
+}
 
 // Fix the event listeners for single click handling
 function setupVideoControlEvents() {
   // Remove any existing listeners to avoid duplicates
-  window.removeEventListener('click', handleVideoClick);
+  window.removeEventListener('click', handleAllClicks);
   window.removeEventListener('dblclick', onDoubleClick);
-  
-  // Add these in the correct order - SINGLE click first, then double click
-  window.addEventListener('click', handleVideoClick);
+  window.addEventListener('click', handleAllClicks);
   window.addEventListener('dblclick', onDoubleClick);
 }
 
 // New handler just for video controls
 function handleVideoClick(event) {
   // Skip if clicking on UI elements
-  if (isClickOnUI(event)) return;
+  if (isClickOnUI(event) || isDragging) return;
 
   // Check if video controls were clicked
   if (videoControlsActive && handleVideoControlClick(event)) {
@@ -689,7 +706,7 @@ function hidePopup() {
 function createVideoControlsTexture() {
   // Create a canvas for our controls
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
+  canvas.width = 900;
   canvas.height = 64;
   const ctx = canvas.getContext('2d');
   
@@ -707,16 +724,17 @@ function createVideoControlsTexture() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const playButtonRect = { x: 8, y: 8, width: 48, height: 48 };
-  const muteButtonRect = { x: 45, y: 5, width: 48, height: 48 };
-  // Extended the progress bar to start closer to the buttons
-  const progressBarRect = { x: 120, y: 24, width: 380, height: 16 };
-  
+  const playButtonRect = { x: 16, y: 8, width: 48, height: 48 };
+  const muteButtonRect = { x: 60, y: 5, width: 48, height: 48 };
+  const progressBarRect = { x: 135, y: 24, width: 700, height: 16 };
+  const hideButtonRect = { x: 850, y: 5, width: 48, height: 48 };
+
   // Store these for interaction
   videoButtons = {
     play: playButtonRect,
     mute: muteButtonRect,
-    progress: progressBarRect
+    progress: progressBarRect,
+    hide: hideButtonRect
   };
   
   // Draw Play button - centered in its area
@@ -743,9 +761,9 @@ function createVideoControlsTexture() {
   
   // Cone (triangle)
   ctx.beginPath();
-  ctx.moveTo(muteButtonRect.x + 25, muteButtonRect.y + 25);  // Top connection
-  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 8.5);  // Top point
-  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 45);  // Bottom point
+  ctx.moveTo(muteButtonRect.x + 25, muteButtonRect.y + 24);  // Top connection
+  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 10);  // Top point
+  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 44);  // Bottom point
   ctx.lineTo(muteButtonRect.x + 25, muteButtonRect.y + 32);  // Bottom connection
   ctx.closePath();
   ctx.fill();
@@ -823,6 +841,35 @@ if (!videoMuted) {
   );
   ctx.stroke();
 }
+
+   // Draw hide/show button
+   ctx.fillStyle = '#ffffff';
+   ctx.beginPath();
+   
+   // Draw different icons based on state
+   if (videoControlsVisible) {
+     // Down arrow (to indicate hiding)
+     ctx.beginPath();
+     ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 18);
+     ctx.lineTo(hideButtonRect.x + 28, hideButtonRect.y + 18);
+     ctx.lineTo(hideButtonRect.x + 20, hideButtonRect.y + 30);
+     ctx.closePath();
+     ctx.fill();
+     
+     // Line at bottom
+     ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 16, 3);
+   } else {
+     // Up arrow (to indicate showing)
+     ctx.beginPath();
+     ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 30);
+     ctx.lineTo(hideButtonRect.x + 28, hideButtonRect.y + 30);
+     ctx.lineTo(hideButtonRect.x + 20, hideButtonRect.y + 18);
+     ctx.closePath();
+     ctx.fill();
+     
+     // Line at bottom
+     ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 16, 3);
+   }
   
   // Progress bar background
   ctx.fillStyle = '#444444';
@@ -863,6 +910,7 @@ function addVideoControls(videoElement, popupPlane) {
   videoElement.play().catch(e => console.warn("Failed to play video:", e));
   videoMuted = true;
   videoElement.muted = true;
+  videoControlsVisible = true;
 
   // Create controls texture
   const { texture, canvas } = createVideoControlsTexture();
@@ -890,7 +938,7 @@ function addVideoControls(videoElement, popupPlane) {
   );
   
   // Ensure controls are visible and properly sized from the start
-  videoControls.visible = true; 
+  videoControls.visible = videoControlsVisible; 
   videoControls.scale.set(1, 1, 1);
   videoControls.renderOrder = 1000; // Ensure it renders on top
   
@@ -931,8 +979,12 @@ function handleVideoControlClick(event) {
   if (!videoControlsActive || !videoControls || !currentVideo) {
     return false;
   }
+
+  if (!videoControlsVisible) {
+    return false;
+  }
   
-  console.log("Checking video control click...");
+  console.log(videoControlsActive, videoControlsVisible);
   
   // Convert screen coordinates to normalized device coordinates
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -951,7 +1003,7 @@ function handleVideoControlClick(event) {
     const uv = intersects[0].uv;
     
     // Convert to pixel coordinates on our canvas
-    const x = uv.x * 512;
+    const x = uv.x * 900;
     const y = (1 - uv.y) * 64;
     
     console.log("Click position on controls:", x, y);
@@ -972,6 +1024,9 @@ function handleVideoControlClick(event) {
       // Seek in video
       const progress = (x - videoButtons.progress.x) / videoButtons.progress.width;
       seekVideo(progress);
+    } else if (isPointInRect(x, y, videoButtons.hide)) {
+      console.log("Hide/show button clicked");
+      toggleControlsVisibility();
     }
     
     // Prevent the event from being processed further
@@ -989,6 +1044,63 @@ function isPointInRect(x, y, rect) {
     y >= rect.y && 
     y <= rect.y + rect.height
   );
+}
+
+function toggleControlsVisibility() {
+  videoControlsVisible = !videoControlsVisible;
+  console.log('video controls visible: ',videoControlsVisible);
+
+  if (videoControls) {
+    if (videoControlsVisible) {
+      // Show controls with animation
+      videoControls.visible = true;
+      gsap.fromTo(videoControls.scale, 
+        { y: 0 },
+        { y: 1, duration: 0.3, ease: "back.out(1.7)" }
+      );
+    } else {
+      // Hide controls with animation
+      gsap.to(videoControls.scale, {
+        y: 0,
+        duration: 0.3,
+        ease: "back.in(1.7)",
+        onComplete: () => {
+          if (videoControls) {
+            videoControls.visible = false;
+          }
+        }
+      });
+    }
+    
+    // Update the control panel UI (show/hide button)
+    updateVideoControls();
+  }
+}
+
+// Add an event listener to detect video click when controls are hidden
+function onVideoClick(event) {
+  if (!videoControlsActive || !currentVideo || isClickOnUI(event) || isDragging) {
+    return false;
+  }
+  
+    // Check if we clicked on the video plane
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    
+    
+
+    const intersects = raycaster.intersectObject(popupPlane);
+    if (intersects.length > 0) {
+      if (!videoControlsVisible) {
+        console.log("Video plane clicked - showing controls");
+        toggleControlsVisibility(); // Show controls
+        event.stopPropagation();
+        return true;
+      }
+    }
+  
+  return false;
 }
 
 function toggleVideoPlayback() {
@@ -1054,11 +1166,13 @@ function removeVideoControls() {
         }
         
         videoControlsActive = false;
+        videoControlsVisible = true; // Reset for next video
       }
     });
   } else {
     // Even if no videoControls object exists, make sure we reset flags
     videoControlsActive = false;
+    videoControlsVisible = true;
     if (currentVideo) {
       currentVideo.removeEventListener('timeupdate', updateVideoProgress);
       currentVideo = null;
