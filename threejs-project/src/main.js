@@ -703,6 +703,7 @@ function hidePopup() {
 
 
 // Create video controls texture
+// Create video controls texture
 function createVideoControlsTexture() {
   // Create a canvas for our controls
   const canvas = document.createElement('canvas');
@@ -712,11 +713,6 @@ function createVideoControlsTexture() {
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // original Background with transparency
-
-  // ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-  // ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
   // Background with gradient for a more refined look
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   gradient.addColorStop(0, 'rgba(20, 20, 20, 0.7)');
@@ -724,10 +720,11 @@ function createVideoControlsTexture() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Make the hide button larger to match the play and mute buttons
   const playButtonRect = { x: 16, y: 8, width: 48, height: 48 };
-  const muteButtonRect = { x: 60, y: 5, width: 48, height: 48 };
-  const progressBarRect = { x: 135, y: 24, width: 700, height: 16 };
-  const hideButtonRect = { x: 850, y: 5, width: 48, height: 48 };
+  const muteButtonRect = { x: 70, y: 5, width: 48, height: 48 };
+  const progressBarRect = { x: 145, y: 24, width: 690, height: 16 };
+  const hideButtonRect = { x: 850, y: 5, width: 48, height: 48 }; // Adjusted y position to match other buttons
 
   // Store these for interaction
   videoButtons = {
@@ -737,154 +734,237 @@ function createVideoControlsTexture() {
     hide: hideButtonRect
   };
   
-  // Draw Play button - centered in its area
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  if (videoPlaying) {
-    // Pause icon - better spacing between bars
-    ctx.fillRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 26);
-    ctx.fillRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 26);
-  } else {
-    // Play triangle - better proportioned
+  // Function to draw a glowing element
+  const drawGlow = (drawFunc) => {
+    // Draw the cyan glow shadow
+    ctx.save();
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 1.25;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#00ffff';
+    drawFunc(true); // true = draw glow
+    ctx.restore();
+    
+    // Draw the white content
+    ctx.fillStyle = '#ffffff';
+    drawFunc(false); // false = draw content
+  };
+
+  // Draw Play button with glow
+  drawGlow((isGlow) => {
+    if (videoPlaying) {
+      // Pause icon
+      if (isGlow) {
+        ctx.strokeRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 26);
+        ctx.strokeRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 26);
+      } else {
+        ctx.fillRect(playButtonRect.x + 15, playButtonRect.y + 12, 7, 26);
+        ctx.fillRect(playButtonRect.x + 28, playButtonRect.y + 12, 7, 26);
+      }
+    } else {
+      // Play triangle
+      ctx.beginPath();
+      ctx.moveTo(playButtonRect.x + 16, playButtonRect.y + 7);
+      ctx.lineTo(playButtonRect.x + 16, playButtonRect.y + 40);
+      ctx.lineTo(playButtonRect.x + 36, playButtonRect.y + 24);
+      ctx.closePath();
+      if (isGlow) {
+        ctx.stroke();
+      } else {
+        ctx.fill();
+      }
+    }
+  });
+  
+  // Draw Mute button with glow
+  drawGlow((isGlow) => {
+    // Speaker base (rectangle)
+    if (isGlow) {
+      ctx.strokeRect(muteButtonRect.x + 12, muteButtonRect.y + 22, 13, 13);
+    } else {
+      ctx.fillRect(muteButtonRect.x + 12, muteButtonRect.y + 22, 13, 13);
+    }
+    
+    // Speaker cone (triangle)
     ctx.beginPath();
-    ctx.moveTo(playButtonRect.x + 16, playButtonRect.y + 7);
-    ctx.lineTo(playButtonRect.x + 16, playButtonRect.y + 40);
-    ctx.lineTo(playButtonRect.x + 36, playButtonRect.y + 24);
+    ctx.moveTo(muteButtonRect.x + 15, muteButtonRect.y + 24);  // Top connection
+    ctx.lineTo(muteButtonRect.x + 25, muteButtonRect.y + 10);  // Top point
+    ctx.lineTo(muteButtonRect.x + 25, muteButtonRect.y + 44);  // Bottom point
+    ctx.lineTo(muteButtonRect.x + 15, muteButtonRect.y + 32);  // Bottom connection
     ctx.closePath();
-    ctx.fill();
-  }
+    
+    if (isGlow) {
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
+    
+    const waveOffsetX = -3;
+    const waveOffsetY = 2;
+
+    // Sound waves or X
+    if (!videoMuted) {
+      // Sound waves
+      if (!isGlow) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+      }
+      
+      // First wave
+      ctx.beginPath();
+      ctx.moveTo(
+        muteButtonRect.x + 34 + waveOffsetX,
+        muteButtonRect.y + 21 + waveOffsetY
+      );
+      ctx.quadraticCurveTo(
+        muteButtonRect.x + 38 + waveOffsetX,
+        muteButtonRect.y + 25 + waveOffsetY,
+        muteButtonRect.x + 34 + waveOffsetX,
+        muteButtonRect.y + 29 + waveOffsetY
+      );
+      ctx.stroke();
+
+      // Second wave
+      ctx.beginPath();
+      ctx.moveTo(
+        muteButtonRect.x + 37 + waveOffsetX,
+        muteButtonRect.y + 18 + waveOffsetY
+      );
+      ctx.quadraticCurveTo(
+        muteButtonRect.x + 43 + waveOffsetX,
+        muteButtonRect.y + 25 + waveOffsetY,
+        muteButtonRect.x + 37 + waveOffsetX,
+        muteButtonRect.y + 32 + waveOffsetY
+      );
+      ctx.stroke();
+
+      // Third wave
+      ctx.beginPath();
+      ctx.moveTo(
+        muteButtonRect.x + 40 + waveOffsetX,
+        muteButtonRect.y + 15 + waveOffsetY
+      );
+      ctx.quadraticCurveTo(
+        muteButtonRect.x + 48 + waveOffsetX,
+        muteButtonRect.y + 25 + waveOffsetY,
+        muteButtonRect.x + 40 + waveOffsetX,
+        muteButtonRect.y + 35 + waveOffsetY
+      );
+      ctx.stroke();
+    } else {
+      // X mark
+      if (!isGlow) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+      }
+      
+      ctx.beginPath();
+      ctx.moveTo(
+        muteButtonRect.x + 34 + waveOffsetX,
+        muteButtonRect.y + 17 + waveOffsetY
+      );
+      ctx.lineTo(
+        muteButtonRect.x + 42 + waveOffsetX,
+        muteButtonRect.y + 33 + waveOffsetY
+      );
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(
+        muteButtonRect.x + 42 + waveOffsetX,
+        muteButtonRect.y + 17 + waveOffsetY
+      );
+      ctx.lineTo(
+        muteButtonRect.x + 34 + waveOffsetX,
+        muteButtonRect.y + 33 + waveOffsetY
+      );
+      ctx.stroke();
+    }
+  });
+
+  // Draw hide/show button with glow
+  drawGlow((isGlow) => {
+    if (videoControlsVisible) {
+      // Down arrow (to indicate hiding)
+      ctx.beginPath();
+      ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 18);
+      ctx.lineTo(hideButtonRect.x + 36, hideButtonRect.y + 18);
+      ctx.lineTo(hideButtonRect.x + 24, hideButtonRect.y + 30);
+      ctx.closePath();
+      
+      if (isGlow) {
+        ctx.stroke();
+      } else {
+        ctx.fill();
+      }
+      
+      // Line at bottom
+      if (isGlow) {
+        ctx.strokeRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 24, 3);
+      } else {
+        ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 24, 3);
+      }
+    } else {
+      // Up arrow (to indicate showing)
+      ctx.beginPath();
+      ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 30);
+      ctx.lineTo(hideButtonRect.x + 36, hideButtonRect.y + 30); 
+      ctx.lineTo(hideButtonRect.x + 24, hideButtonRect.y + 18);
+      ctx.closePath();
+      
+      if (isGlow) {
+        ctx.stroke();
+      } else {
+        ctx.fill();
+      }
+      
+      // Line at bottom
+      if (isGlow) {
+        ctx.strokeRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 24, 3);
+      } else {
+        ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 24, 3);
+      }
+    }
+  });
   
-  // Base speaker design - triangular shape with base
-  ctx.beginPath();
-  // Base (rectangle)
-  ctx.fillRect(muteButtonRect.x + 22, muteButtonRect.y + 22, 13, 13);
-  
-  // Cone (triangle)
-  ctx.beginPath();
-  ctx.moveTo(muteButtonRect.x + 25, muteButtonRect.y + 24);  // Top connection
-  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 10);  // Top point
-  ctx.lineTo(muteButtonRect.x + 35, muteButtonRect.y + 44);  // Bottom point
-  ctx.lineTo(muteButtonRect.x + 25, muteButtonRect.y + 32);  // Bottom connection
-  ctx.closePath();
-  ctx.fill();
-  
-// amount to shift waves/X
-const waveOffsetX = 5;
-const waveOffsetY = 2;
-
-ctx.lineWidth = 2;
-ctx.strokeStyle = '#ffffff';
-
-if (!videoMuted) {
-  // First wave
-  ctx.beginPath();
-  ctx.moveTo(
-    muteButtonRect.x + 34 + waveOffsetX,
-    muteButtonRect.y + 21 + waveOffsetY
-  );
-  ctx.quadraticCurveTo(
-    muteButtonRect.x + 38 + waveOffsetX,
-    muteButtonRect.y + 25 + waveOffsetY,
-    muteButtonRect.x + 34 + waveOffsetX,
-    muteButtonRect.y + 29 + waveOffsetY
-  );
-  ctx.stroke();
-
-  // Second wave
-  ctx.beginPath();
-  ctx.moveTo(
-    muteButtonRect.x + 37 + waveOffsetX,
-    muteButtonRect.y + 18 + waveOffsetY
-  );
-  ctx.quadraticCurveTo(
-    muteButtonRect.x + 43 + waveOffsetX,
-    muteButtonRect.y + 25 + waveOffsetY,
-    muteButtonRect.x + 37 + waveOffsetX,
-    muteButtonRect.y + 32 + waveOffsetY
-  );
-  ctx.stroke();
-
-  // Third wave
-  ctx.beginPath();
-  ctx.moveTo(
-    muteButtonRect.x + 40 + waveOffsetX,
-    muteButtonRect.y + 15 + waveOffsetY
-  );
-  ctx.quadraticCurveTo(
-    muteButtonRect.x + 48 + waveOffsetX,
-    muteButtonRect.y + 25 + waveOffsetY,
-    muteButtonRect.x + 40 + waveOffsetX,
-    muteButtonRect.y + 35 + waveOffsetY
-  );
-  ctx.stroke();
-} else {
-  // X mark
-  ctx.beginPath();
-  ctx.moveTo(
-    muteButtonRect.x + 34 + waveOffsetX,
-    muteButtonRect.y + 17 + waveOffsetY
-  );
-  ctx.lineTo(
-    muteButtonRect.x + 42 + waveOffsetX,
-    muteButtonRect.y + 33 + waveOffsetY
-  );
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(
-    muteButtonRect.x + 42 + waveOffsetX,
-    muteButtonRect.y + 17 + waveOffsetY
-  );
-  ctx.lineTo(
-    muteButtonRect.x + 34 + waveOffsetX,
-    muteButtonRect.y + 33 + waveOffsetY
-  );
-  ctx.stroke();
-}
-
-   // Draw hide/show button
-   ctx.fillStyle = '#ffffff';
-   ctx.beginPath();
-   
-   // Draw different icons based on state
-   if (videoControlsVisible) {
-     // Down arrow (to indicate hiding)
-     ctx.beginPath();
-     ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 18);
-     ctx.lineTo(hideButtonRect.x + 28, hideButtonRect.y + 18);
-     ctx.lineTo(hideButtonRect.x + 20, hideButtonRect.y + 30);
-     ctx.closePath();
-     ctx.fill();
-     
-     // Line at bottom
-     ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 16, 3);
-   } else {
-     // Up arrow (to indicate showing)
-     ctx.beginPath();
-     ctx.moveTo(hideButtonRect.x + 12, hideButtonRect.y + 30);
-     ctx.lineTo(hideButtonRect.x + 28, hideButtonRect.y + 30);
-     ctx.lineTo(hideButtonRect.x + 20, hideButtonRect.y + 18);
-     ctx.closePath();
-     ctx.fill();
-     
-     // Line at bottom
-     ctx.fillRect(hideButtonRect.x + 12, hideButtonRect.y + 35, 16, 3);
-   }
-  
-  // Progress bar background
-  ctx.fillStyle = '#444444';
+  // Progress bar with glow
+  // First draw the background
+  ctx.fillStyle = '#333333';
   ctx.fillRect(progressBarRect.x, progressBarRect.y, progressBarRect.width, progressBarRect.height);
   
-  // Progress indicator
+  // Draw glow for progress bar outline
+  ctx.save();
+  ctx.shadowColor = '#00ffff';
+  ctx.shadowBlur = 1.5;
+  ctx.strokeStyle = '#00ffff';
+  ctx.strokeRect(progressBarRect.x, progressBarRect.y, progressBarRect.width, progressBarRect.height);
+  ctx.restore();
+  
+  // Progress indicator with glow
   if (videoDuration > 0) {
     const progress = videoCurrentTime / videoDuration;
-    ctx.fillStyle = '#00ffff';
+    const progressWidth = progressBarRect.width * progress;
+    
+    // Draw the glowing progress fill
+    ctx.save();
+    ctx.shadowColor = '#daf7fe';
+    ctx.shadowBlur = 1.5;
+    const progressGradient = ctx.createLinearGradient(
+      progressBarRect.x, 
+      progressBarRect.y, 
+      progressBarRect.x + progressWidth, 
+      progressBarRect.y
+    );
+    progressGradient.addColorStop(0, '#daf7fe');
+    progressGradient.addColorStop(1, '#00ffff');
+    ctx.fillStyle = progressGradient;
     ctx.fillRect(
       progressBarRect.x, 
       progressBarRect.y, 
-      progressBarRect.width * progress, 
+      progressWidth, 
       progressBarRect.height
     );
+    ctx.restore();
   }
   
   // Create texture from canvas
