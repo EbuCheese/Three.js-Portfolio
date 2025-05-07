@@ -230,23 +230,7 @@ function setupVideoControlEvents() {
   window.addEventListener('dblclick', onDoubleClick);
 }
 
-// New handler just for video controls
-function handleVideoClick(event) {
-  // Skip if clicking on UI elements
-  if (isClickOnUI(event) || isDragging) return;
-
-  // Check if video controls were clicked
-  if (videoControlsActive && handleVideoControlClick(event)) {
-    // Prevent further processing if controls were clicked
-    event.preventDefault();
-    event.stopPropagation();
-    return;
-  }
-}
-
-
 init();
-
 
 // Load everything before starting the scene
 Promise.all([
@@ -576,9 +560,6 @@ function getFrontFaceIndex(rotX, rotY) {
   return faceMap[normalizedY];
 }
 
-
-
-
 // Function to update the link btn inside the popupPlane for project face
 function updateLink(faceIndex) {
   const project = shuffled[faceIndex];
@@ -605,8 +586,6 @@ function updateLink(faceIndex) {
 }
 
 // Click Func
-
-
 function onDoubleClick(event) {
   if (!initialSnap) return;
   if (isDragging || isClickOnUI(event)) return;
@@ -656,8 +635,6 @@ function onDoubleClick(event) {
   openedFaceIndex = faceIndex;
 }
 
-
-
 function hidePopup() {
   if (popupPlane) {
     bloomPass.strength = 0.2;
@@ -697,8 +674,6 @@ function hidePopup() {
   }
 }
 
-
-// Create video controls texture
 // Create video controls texture
 function createVideoControlsTexture() {
   // Create a canvas for our controls
@@ -1153,32 +1128,6 @@ function toggleControlsVisibility() {
   }
 }
 
-// Add an event listener to detect video click when controls are hidden
-function onVideoClick(event) {
-  if (!videoControlsActive || !currentVideo || isClickOnUI(event) || isDragging) {
-    return false;
-  }
-  
-    // Check if we clicked on the video plane
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-    
-    
-
-    const intersects = raycaster.intersectObject(popupPlane);
-    if (intersects.length > 0) {
-      if (!videoControlsVisible) {
-        console.log("Video plane clicked - showing controls");
-        toggleControlsVisibility(); // Show controls
-        event.stopPropagation();
-        return true;
-      }
-    }
-  
-  return false;
-}
-
 function toggleVideoPlayback() {
   if (!currentVideo) return;
   
@@ -1257,9 +1206,7 @@ function removeVideoControls() {
 }
 
 
-
 // Popup Planes Creation
-
 let popupPlane, borderPlane, shadowPlane;
 
 const popupWidth = 2;
