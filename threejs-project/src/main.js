@@ -4,19 +4,13 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { gsap } from 'gsap';
+import { PopupPlane, CUBE_FACES, popupWidth, popupHeight } from './components/PopupPlane';
 
-const CUBE_FACES = {
-  RIGHT: 0,  // +X
-  LEFT: 1,   // -X
-  TOP: 2,    // +Y
-  BOTTOM: 3, // -Y
-  FRONT: 4,  // +Z
-  BACK: 5    // -Z
-};
+let popupPlaneController;
+let openedFaceIndex = null;
 
 let scene, camera, renderer, composer, cube, outlineMesh;
 let initialSnap = false;
-let isPopupActive = false;
 let hasShownClickHint = false;
 let startX = 0;
 let startY = 0;
@@ -24,7 +18,6 @@ let currentFaceIndex = 0;
 let targetRotation = { x: 0, y: 3.89 };
 let easing = 0.1;
 let bloomPass;
-let openedFaceIndex = null;  // Global opened face
 
 let videoControlsVisible = true;
 let videoControlsActive = false;
@@ -203,21 +196,32 @@ async function updateSceneEnvironment(bgPath) {
 }
 
 function handleAllClicks(event) {
-  // 1) Never fire during drag or on other UI
+  // Never fire during drag or on other UI
   if (isDragging || isClickOnUI(event)) return;
-  // 2) If controls are active and visible, test them first
-  if (videoControlsActive && videoControlsVisible && handleVideoControlClick(event)) {
-    // control got the click → we’re done
+
+  const popupState = popupPlaneController.getPopupState();
+
+  if (popupState.isAnimating) {
+    console.log("Click ignored - animation in progress");
     return;
   }
-  // 3) Otherwise test against the video plane
+
+  // If controls are active and visible, test them first
+  if (videoControlsActive && videoControlsVisible && handleVideoControlClick(event)) {
+    // control got the click = done
+    return;
+  }
+  // Otherwise test against the video plane
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObject(popupPlane);
-  if (hits.length > 0) {
-    // toggle controls
-    toggleControlsVisibility();
+
+  if (popupPlaneController.popupPlane) {
+    const hits = raycaster.intersectObject(popupPlaneController.popupPlane);
+    if (hits.length > 0) {
+      // toggle controls
+      toggleControlsVisibility();
+    }
   }
 }
 
@@ -226,8 +230,10 @@ function setupVideoControlEvents() {
   // Remove any existing listeners to avoid duplicates
   window.removeEventListener('click', handleAllClicks);
   window.removeEventListener('dblclick', onDoubleClick);
-  window.addEventListener('click', handleAllClicks);
-  window.addEventListener('dblclick', onDoubleClick);
+  
+  // Add event listeners with passive option for better performance
+  window.addEventListener('click', handleAllClicks, { passive: false });
+  window.addEventListener('dblclick', onDoubleClick, { passive: false });
 }
 
 init();
@@ -293,6 +299,8 @@ Promise.all([
 
   // Create the cube with loaded materials
   cube = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), materials);
+  popupPlaneController = new PopupPlane(cube, renderer, bloomPass);
+  
 
   // Glowing outline
   const outlineShaderMaterial = new THREE.ShaderMaterial({
@@ -335,7 +343,7 @@ Promise.all([
 
   scene.add(cube);
   
-  // Optional: Smooth exposure fade-in for background
+  // Smooth exposure fade-in for background
   const fade = { val: 0 };
   renderer.toneMappingExposure = 0;
   gsap.to(fade, {
@@ -399,13 +407,17 @@ function init() {
 
   // EVENTS //
   
-  // Click Event
-  window.removeEventListener('dblclick', onDoubleClick);
-  window.addEventListener('dblclick', onDoubleClick);
-
   // Mouse controls
   window.addEventListener('mousedown', (e) => {
     if (isClickOnUI(e)) return;
+
+    // Check if any popup animation is in progress
+    const popupState = popupPlaneController.getPopupState();
+    if (popupState.isAnimating) {
+      console.log("Mouse down ignored - animation in progress");
+      return;
+    }
+
     dragInitiated = true;
     startX = e.clientX;
     startY = e.clientY;
@@ -424,6 +436,12 @@ function init() {
   window.addEventListener('mousemove', (e) => {
     cursor.style.top = `${e.clientY}px`;
     cursor.style.left = `${e.clientX}px`;
+
+    // Check if any popup animation is in progress
+    const popupState = popupPlaneController.getPopupState();
+    if (popupState.isAnimating) {
+      return; // Don't process drag during animations
+    }
 
     if (dragInitiated && !isDragging) {
       const distX = Math.abs(e.clientX - startX);
@@ -450,6 +468,14 @@ function init() {
   // Touch controls
   window.addEventListener('touchstart', (e) => {
     if (isClickOnUI(e)) return;
+
+    // Check if any popup animation is in progress
+    const popupState = popupPlaneController.getPopupState();
+    if (popupState.isAnimating) {
+      console.log("Touch start ignored - animation in progress");
+      return;
+    }
+
     isDragging = true;
     startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -458,6 +484,13 @@ function init() {
   window.addEventListener('touchmove', (e) => {
     if (isClickOnUI(e)) return;
     if (!isDragging) return;
+
+    // Check if any popup animation is in progress
+    const popupState = popupPlaneController.getPopupState();
+    if (popupState.isAnimating) {
+      return; // Don't process drag during animations
+    }
+
     const deltaX = e.touches[0].clientX - startX;
     const deltaY = e.touches[0].clientY - startY;
 
@@ -491,21 +524,11 @@ function snapRotation() {
   targetRotation.y = snappedY;
 
   const newFaceIndex = getFrontFaceIndex(snappedX, snappedY);
+  const popupState = popupPlaneController.getPopupState();
 
-  if (popupPlane && currentFaceIndex !== newFaceIndex) {
+  if (popupState.isActive && currentFaceIndex !== newFaceIndex) {
     // Close popup if snapped to a new face
-    cube.remove(popupPlane);
-    cube.remove(borderPlane);
-    cube.remove(shadowPlane);
-    popupPlane = null;
-    borderPlane = null;
-    shadowPlane = null;
-    isPopupActive = false;
-
-    if (videoControls) {
-      removeVideoControls();
-    }
-
+    hidePopup();
   }
 
   // logic to show hints for cube interaction
@@ -562,24 +585,20 @@ function getFrontFaceIndex(rotX, rotY) {
 
 // Function to update the link btn inside the popupPlane for project face
 function updateLink(faceIndex) {
-  const project = shuffled[faceIndex];
-  
-  console.log('Updating link for:', {
-    face: faceIndex,
-    faceName: Object.keys(CUBE_FACES)[Object.values(CUBE_FACES).indexOf(faceIndex)],
-    project: project,
-    isPopupActive: isPopupActive
-  });
-  
+  const popupState = popupPlaneController.getPopupState();
   const linkEl = document.getElementById('link-btn');
   const projectNameEl = document.getElementById('project-name');
   
   if (!linkEl || !projectNameEl) return;
   
-  if (project && isPopupActive) {
-    linkEl.href = project.link;
-    projectNameEl.textContent = project.name;
-    linkEl.style.display = 'flex'; // Show link
+  // Only show link if popup is active AND not closing
+  if (faceIndex !== null && popupState.isActive && !popupState.isClosing) {
+    const project = shuffled[faceIndex];
+    if (project) {
+      linkEl.href = project.link;
+      projectNameEl.textContent = project.name;
+      linkEl.style.display = 'flex'; // Show link
+    }
   } else {
     linkEl.style.display = 'none'; // Hide link
   }
@@ -589,6 +608,19 @@ function updateLink(faceIndex) {
 function onDoubleClick(event) {
   if (!initialSnap) return;
   if (isDragging || isClickOnUI(event)) return;
+
+  const popupState = popupPlaneController.getPopupState();
+
+  if (popupState.isAnimating) {
+    console.log("Double-click ignored - animation in progress");
+    return;
+  }
+
+  const now = Date.now();
+  if (now - popupState.lastAnimationTime < popupPlaneController.animationDelay) {
+    console.log("Double-click ignored - on animation cooldown");
+    return;
+  }
 
   if (handleVideoControlClick(event)) {
     return; // Already handled by video controls
@@ -619,8 +651,8 @@ function onDoubleClick(event) {
   ];
   const faceIndex = faceLookup[raw];
 
-  if (popupPlane) {
-    if (openedFaceIndex === faceIndex) {
+  if (popupState.isActive) {
+    if (popupState.openedFaceIndex === faceIndex) {
       return; // clicking same face again → do nothing
     } else {
       hidePopup(); // different face → close current
@@ -631,47 +663,26 @@ function onDoubleClick(event) {
 
   // No popup yet → open the new one
   showPopupPlane(faceIndex);
-  updateLink(faceIndex);
   openedFaceIndex = faceIndex;
 }
 
 function hidePopup() {
-  if (popupPlane) {
-    bloomPass.strength = 0.2;
 
-    removeVideoControls();
-
-    gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
-      x: 0,
-      y: 0,
-      z: 0,
-      duration: 0.4,
-      ease: "back.in(1.7)"
-    });
-
-    gsap.to(popupPlane.material, {
-      opacity: 0,
-      duration: 0.3,
-      ease: "power2.in",
-      onComplete: () => {
-        cube.remove(popupPlane);
-        cube.remove(borderPlane);
-        cube.remove(shadowPlane);
-        popupPlane = null;
-        borderPlane = null;
-        shadowPlane = null;
-        isPopupActive = false;
-
-        const linkEl = document.getElementById('link-btn');
-        if (linkEl) {
-          linkEl.style.display = 'none';
-        }
-
-        // Reset the opened face
-        openedFaceIndex = null;
-      }
-    });
+  // Check if popup is currently animating before proceeding
+  const popupState = popupPlaneController.getPopupState();
+  if (popupState.isAnimating) {
+    console.log("Hide popup ignored - animation already in progress");
+    return;
   }
+
+  // hide link asap
+  const linkEl = document.getElementById('link-btn');
+  if (linkEl) {
+    linkEl.style.display = 'none';
+  }
+  
+  removeVideoControls();
+  popupPlaneController.hidePopup(removeVideoControls, updateLink);
 }
 
 // Create video controls texture
@@ -951,6 +962,15 @@ const controlsHeight = 0.1;
 
 // Improved function to add video controls to the popup
 function addVideoControls(videoElement, popupPlane) {
+
+  // Check if animations are in progress
+  const popupState = popupPlaneController.getPopupState();
+  if (popupState.isAnimating) {
+    console.log("Add video controls ignored - animation in progress");
+    return;
+  }
+
+  removeVideoControls();
   // Store reference to current video
   currentVideo = videoElement;
   videoDuration = videoElement.duration || 0;
@@ -1098,6 +1118,14 @@ function isPointInRect(x, y, rect) {
 }
 
 function toggleControlsVisibility() {
+
+  // Don't toggle if animation is in progress
+  const popupState = popupPlaneController.getPopupState();
+  if (popupState.isAnimating) {
+    console.log("Toggle controls ignored - animation in progress");
+    return;
+  }
+
   videoControlsVisible = !videoControlsVisible;
   console.log('video controls visible: ',videoControlsVisible);
 
@@ -1171,33 +1199,39 @@ function updateVideoProgress() {
 
 // Remove video controls
 function removeVideoControls() {
-  if (videoControls) {
+  // Immediately mark controls as inactive
+  videoControlsActive = false;
+  
+  // First check if we have controls to remove
+  if (videoControls && cube.children.includes(videoControls)) {
+    // Remove video element event listeners first
+    if (currentVideo) {
+      currentVideo.removeEventListener('timeupdate', updateVideoProgress);
+      currentVideo = null;
+    }
+    
+    // Animate out and remove
     gsap.to(videoControls.scale, {
-      x: 0,
+      x: 0, 
       y: 0,
       z: 0,
-      duration: 0.3,
+      duration: 0.2,
       ease: "back.in(1.7)",
       onComplete: () => {
-        if (videoControls) {
+        // Double check if videoControls is still in the scene
+        if (videoControls && cube.children.includes(videoControls)) {
           cube.remove(videoControls);
-          videoControls = null;
         }
-        
-        // Remove event listeners from video
-        if (currentVideo) {
-          currentVideo.removeEventListener('timeupdate', updateVideoProgress);
-          currentVideo = null;
-        }
-        
-        videoControlsActive = false;
+        videoControls = null;
         videoControlsVisible = true; // Reset for next video
       }
     });
   } else {
-    // Even if no videoControls object exists, make sure we reset flags
-    videoControlsActive = false;
-    videoControlsVisible = true;
+    // No video controls exist, or they've already been removed
+    videoControls = null;
+    videoControlsVisible = true; // Reset for next video
+    
+    // Still need to clean up video event listeners
     if (currentVideo) {
       currentVideo.removeEventListener('timeupdate', updateVideoProgress);
       currentVideo = null;
@@ -1206,248 +1240,41 @@ function removeVideoControls() {
 }
 
 
-// Popup Planes Creation
-let popupPlane, borderPlane, shadowPlane;
-
-const popupWidth = 2;
-const popupHeight = 1;
-const borderThickness = 0.04; // or however thick you want it
-
-const popupGeometry = new THREE.PlaneGeometry(popupWidth, popupHeight, 4, 4);
-const borderGeometry = new THREE.PlaneGeometry(popupWidth + borderThickness, popupHeight + borderThickness, 4, 4);
-const shadowGeometry = new THREE.PlaneGeometry(popupWidth + 0.1, popupHeight + 0.1, 4, 4);
-
-const glowPlaneMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    glowColor: { value: new THREE.Color(0x00ffff) },
-    glowIntensity: { value: 4 }
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform vec3 glowColor;
-    uniform float glowIntensity;
-    varying vec2 vUv;
-
-    void main() {
-      float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-      float intensity = clamp(edgeDist * glowIntensity, 0.0, 1.0);
-      float alpha = 1.0 - intensity;
-      gl_FragColor = vec4(glowColor * alpha * 5.0, alpha); // adjust for brighter / more glow
-    }
-  `,
-  blending: THREE.AdditiveBlending,
-  transparent: true,
-  depthWrite: false
-});
-
-
 function showPopupPlane(faceIndex) {
-    // remove the click hint elem right away if on screen
-    const clickHint = document.getElementById('click-hint');
-    if (clickHint) {
-      clickHint.remove();
-    }
 
-  openedFaceIndex = faceIndex;
-  console.log(openedFaceIndex);
-  const originalBloomStrength = 0.2; // Store the default bloom strength
+  // Check if there's an animation in progress
+  const popupState = popupPlaneController.getPopupState();
+  if (popupState.isAnimating) {
+    console.log("Show popup ignored - animation in progress");
+    return;
+  }
   
-  // If popup is already active, close it first
-  if (popupPlane) {
-    removeVideoControls();
-    // Make sure we set a consistent cleanup function
-    const cleanupPopup = () => {
-      cube.remove(popupPlane);
-      cube.remove(borderPlane);
-      cube.remove(shadowPlane);
-      popupPlane = null;
-      borderPlane = null;
-      shadowPlane = null;
-      isPopupActive = false;
-
-      // Reset bloom to original value
-      bloomPass.strength = originalBloomStrength;
-      
-      // Hide link when popup is closed
-      const linkEl = document.getElementById('link-btn');
-      if (linkEl) {
-        linkEl.style.display = 'none';
-      }
-      
-      console.log("Popup closed, bloom reset to:", originalBloomStrength);
-    };
-
-    // Make sure the animation completes properly
-    bloomPass.strength = 0.2; // Reset bloom first
-    
-    gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
-      x: 0,
-      y: 0,
-      z: 0,
-      duration: 0.4,
-      ease: "back.in(1.7)"
-    });
-
-    gsap.to(popupPlane.material, {
-      opacity: 0,
-      duration: 0.3,
-      ease: "power2.in",
-      onComplete: cleanupPopup // Use our consistent cleanup function
-    });
-
+  // Check animation cooldown 
+  const now = Date.now();
+  if (now - popupState.lastAnimationTime < popupPlaneController.animationDelay) {
+    console.log("Show popup ignored - on animation cooldown");
     return;
   }
 
-
-  const offset = 0.61;
-
-  const positions = [
-    [offset, 0, 0], [-offset, 0, 0],
-    [0, offset, 0], [0, -offset, 0],
-    [0, 0, offset], [0, 0, -offset]
-  ];
-  const rotation = [
-    [0, Math.PI / 2, 0], [0, -Math.PI / 2, 0],
-    [-Math.PI / 2, 0, 0], [Math.PI / 2, 0, 0],
-    [0, 0, 0], [0, Math.PI, 0]
-  ];
-
-  const pos = positions[faceIndex];
-  const rot = rotation[faceIndex];
-
-
-  const project = shuffled[faceIndex];
-  console.log('Popup debug - faceIndex:', faceIndex, 'project:', project);
-
-  let material;
-  let videoElement = null;
-
-  if (project.video) {
-    videoElement = document.createElement('video');
-    videoElement.src = project.video;
-    videoElement.loop = true;
-    videoElement.muted = true;
-    videoElement.playsInline = true;
-    videoElement.autoplay = true;
-    videoElement.crossOrigin = 'anonymous';
-    videoElement.load();
-    videoElement.play().catch(e => console.warn("Video failed:", e));
-
-    const texture = new THREE.VideoTexture(videoElement);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.generateMipmaps = false;
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-    material = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0
-    });
-  } else {
-    material = new THREE.MeshBasicMaterial({
-      map: materials[faceIndex].map,
-      transparent: true,
-      opacity: 0,
-      toneMapped: false
-    });
-  }
-
-  // --- POPUP PLANE
-  popupPlane = new THREE.Mesh(
-    popupGeometry,
-    material
+  popupPlaneController.showPopupPlane(
+    faceIndex, 
+    shuffled, 
+    materials, 
+    () => {}, 
+    addVideoControls, 
+    updateLink, 
+    snapRotation
   );
-  popupPlane.position.set(...pos);
-  popupPlane.rotation.set(...rot);
-  popupPlane.scale.set(0, 0, 0);
-  popupPlane.renderOrder = 999;
-  popupPlane.material.depthWrite = false;
-  popupPlane.material.depthTest = false;
-
-  popupPlane.material.polygonOffset = true;
-  popupPlane.material.polygonOffsetFactor = -1;
-  popupPlane.material.polygonOffsetUnits = -4;
-
-  // --- BORDER PLANE
-  borderPlane = new THREE.Mesh(
-    borderGeometry,
-    glowPlaneMaterial
-  );
-  borderPlane.position.set(...pos);
-  borderPlane.rotation.set(...rot);
-  borderPlane.scale.set(0, 0, 0);
-  borderPlane.translateZ(-0.008); // just behind popupPlane
-  borderPlane.renderOrder = 998;
-
-
-  // --- SHADOW PLANE 
-  shadowPlane = new THREE.Mesh(
-    shadowGeometry,
-    new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.35 
-    })
-  );
-  shadowPlane.position.set(...pos);
-  shadowPlane.rotation.set(...rot);
-  shadowPlane.scale.set(0, 0, 0);
-  shadowPlane.translateZ(-0.015);
-  shadowPlane.renderOrder = 997;
-
-  cube.add(shadowPlane);
-  cube.add(borderPlane);
-  cube.add(popupPlane);
-
-  bloomPass.strength = 0.12;
-
-  gsap.to([popupPlane.scale, borderPlane.scale, shadowPlane.scale], {
-    x: 1,
-    y: 1,
-    z: 1,
-    duration: 0.6,
-    ease: "back.out(1.7)",
-    onComplete: () => {
-      isPopupActive = true;
-      document.getElementById('link-btn').style.display = 'flex';
-      updateLink(faceIndex);
-      snapRotation();
-
-      if (videoElement) {
-        addVideoControls(videoElement, popupPlane);
-      }
-    }
-  });
-
-  gsap.to(popupPlane.material, {
-    opacity: 1,
-    duration: 0.5,
-    ease: "power2.out"
-  });
 }
+
 
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   if (!cube) return;
+  const popupState = popupPlaneController.getPopupState();
 
-  if (popupPlane) {
-    if (bloomPass.strength !== 0.12) {
-      bloomPass.strength = 0.12; // Ensure popup bloom value
-    }
-  } else {
-    if (bloomPass.strength !== 0.2) {
-      bloomPass.strength = 0.2; // Ensure default bloom value
-    }
-  }
+  popupPlaneController.updateBloom();
 
   const time = clock.getElapsedTime();
   const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
@@ -1463,7 +1290,7 @@ function animate() {
   }
 
   // Only animate if popup is not visible
-  if (!popupPlane) {
+  if (!popupState.isActive) {
     const t = time % cycleDuration;
 
     // Reset positions
@@ -1491,7 +1318,6 @@ function animate() {
       cube.position.y = 0;
     }
 
-    
     // smooth rotation logic 
     cube.rotation.x += (targetRotation.x - cube.rotation.x) * easing;
     cube.rotation.y += (targetRotation.y - cube.rotation.y) * easing;
