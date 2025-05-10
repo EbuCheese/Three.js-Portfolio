@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { VideoControls } from './VideoControls';
 
 // Constants
 const popupWidth = 2;
@@ -52,10 +53,11 @@ const CUBE_FACES = {
 };
 
 class PopupPlane {
-  constructor(cube, renderer, bloomPass) {
+  constructor(cube, renderer, bloomPass, camera) {
     this.cube = cube;
     this.renderer = renderer;
     this.bloomPass = bloomPass;
+    this.camera = camera;
     this.popupPlane = null;
     this.borderPlane = null;
     this.shadowPlane = null;
@@ -66,6 +68,8 @@ class PopupPlane {
     this.isOpening = false;
     this.animationDelay = 650; // Animation cooldown in ms
     this.lastAnimationTime = 0;
+
+    this.videoControls = new VideoControls(cube, renderer, camera);
 
     // Preload materials to improve performance
     this.borderMaterial = glowPlaneMaterial.clone();
@@ -236,7 +240,8 @@ class PopupPlane {
         snapRotation();
 
         if (videoElement) {
-          addVideoControls(videoElement, this.popupPlane);
+          const popupState = this.getPopupState();
+          this.videoControls.add(videoElement, this.popupPlane, popupState);
         }
 
         if (onPopupShow) onPopupShow();
@@ -289,12 +294,11 @@ resetPopupState() {
   console.log("Popup state forcibly reset");
 }
 
-/**
- * Hide the popup plane
- * @param {Function} removeVideoControls - Function to remove video controls
- * @param {Function} updateLink - Function to update link visibility
- */
-hidePopup(removeVideoControls, updateLink) {
+ /**
+   * Hide the popup plane
+   * @param {Function} updateLink - Function to update link visibility
+   */
+ hidePopup(updateLink) {
   if (this.popupPlane && !this.isClosing) {
     this.isClosing = true; // Set closing flag
     this.isPopupActive = false;
@@ -308,9 +312,8 @@ hidePopup(removeVideoControls, updateLink) {
     // Reset bloom to default
     this.bloomPass.strength = 0.2;
 
-    if (removeVideoControls) {
-      removeVideoControls();
-    }
+    // First remove video controls if they exist
+    this.videoControls.remove();
 
     // Hide link immediately if updateLink provided
     if (typeof updateLink === 'function') {
@@ -373,7 +376,6 @@ hidePopup(removeVideoControls, updateLink) {
     });
   }
 }
-
   /**
    * Get the current popup state
    * @returns {Object} Information about the current popup state
@@ -388,6 +390,16 @@ hidePopup(removeVideoControls, updateLink) {
       isAnimating: this.isClosing || this.isOpening,
       lastAnimationTime: this.lastAnimationTime
     };
+  }
+
+   /**
+   * Handle click event on video controls
+   * @param {Event} event - The click event
+   * @returns {boolean} True if the event was handled by video controls
+   */
+   handleVideoControlClick(event) {
+    const popupState = this.getPopupState();
+    return this.videoControls.handleClick(event, popupState);
   }
 
   /**
@@ -409,6 +421,15 @@ hidePopup(removeVideoControls, updateLink) {
       this.bloomPass.strength = this.originalBloomStrength; // Default bloom value
     }
   }
+
+  /**
+   * Update video controls in animation loop if active
+   */
+  animate() {
+    // Allow the VideoControls class to handle its own animation updates
+    this.videoControls.animate();
+  }
+
 }
 
 export { PopupPlane, CUBE_FACES, popupWidth, popupHeight };
