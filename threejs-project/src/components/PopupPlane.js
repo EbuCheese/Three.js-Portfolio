@@ -305,6 +305,12 @@ resetPopupState() {
     
     this.lastAnimationTime = Date.now();
 
+    const linkEl = document.getElementById('link-btn');
+    // hide link fast
+    if (linkEl) {
+      linkEl.style.display = 'none';
+    }
+
     // Reset opened face index immediately
     const previousFaceIndex = this.openedFaceIndex;
     this.openedFaceIndex = null;
