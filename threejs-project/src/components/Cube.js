@@ -44,7 +44,7 @@ export class Cube {
       '/fu1.jpg': { metalness: 0.95, roughness: 0.15, envMapIntensity: 1.2 },
       '/fu2.jpg': { metalness: 0.8, roughness: 0.3, envMapIntensity: 0.8 },
       '/fu3.png': { metalness: 0.6, roughness: 0.25, envMapIntensity: 0.5 },
-      '/fu4.jpg': { metalness: 0.9, roughness: 0.2, envMapIntensity: 1.0 },
+      '/fu4.jpg': { metalness: 0.9, roughness: 0.2, envMapIntensity: 0.9 },
       '/fu5.jpg': { metalness: 0.6, roughness: 0.3, envMapIntensity: 0.8 },
       '/fu6.jpg': { metalness: 0.8, roughness: 0.3, envMapIntensity: 1 },
       '/fu7.jpg': { metalness: 1, roughness: 0.2, envMapIntensity: 1.0 },
