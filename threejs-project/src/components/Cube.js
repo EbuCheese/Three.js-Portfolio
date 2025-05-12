@@ -5,6 +5,7 @@ import { CUBE_FACES } from './PopupPlane';
 
 export class Cube {
   constructor(renderer, bloomPass, camera, scene) {
+    // Cube params
     this.renderer = renderer;
     this.bloomPass = bloomPass;
     this.camera = camera;
@@ -37,6 +38,7 @@ export class Cube {
       { image: '/lime.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project6', name: 'Back (-Z)' }
     ];
     
+    // shuffle the projects
     this.shuffledProjects = [...this.projects].sort(() => 0.5 - Math.random());
     
     // Material adjustments for different backgrounds
@@ -104,6 +106,7 @@ export class Cube {
     }
   }
   
+  // set the popupController --> see PopupPlane.js 
   setPopupController(controller) {
     this.popupPlaneController = controller;
   }
@@ -123,7 +126,7 @@ export class Cube {
     const materialPromises = orderedProjects.map(project => 
       this.createMaterial(project.image)
     );
-    
+    // set the promise for cube materials
     try {
       this.materials = await Promise.all(materialPromises);
       return this.materials;
@@ -145,7 +148,7 @@ export class Cube {
           texture.generateMipmaps = true;
           texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
           texture.needsUpdate = true;
-          
+          // default material for cube faces
           const material = new THREE.MeshStandardMaterial({
             map: texture,
             metalness: 0.95,
@@ -167,7 +170,7 @@ export class Cube {
   }
   
   createOutlineMesh() {
-    // Create glowing outline effect
+    // Create glowing outline effect around cube edges
     const outlineShaderMaterial = new THREE.ShaderMaterial({
       uniforms: {
         glowColor: { value: new THREE.Color(0x00ffff) },
@@ -215,6 +218,7 @@ export class Cube {
     });
   }
   
+  // update the background, material adjustments, and hdri 
   async updateSceneEnvironment(bgPath, hidePopupCallback, updateLinkCallback) {
     const loaderEl = document.getElementById('bg-loading');
     if (loaderEl) loaderEl.classList.remove('hidden');
@@ -282,6 +286,8 @@ export class Cube {
     });
   }
   
+  /// Handle the mouse and touch events ///
+
   handleMouseDown(e, isClickOnUI, popupState) {
     if (isClickOnUI(e)) return;
     
@@ -375,6 +381,7 @@ export class Cube {
     this.snapRotation();
   }
   
+  // Snapping to faces logic
   snapRotation() {
     this.initialSnap = true;
     
@@ -421,6 +428,7 @@ export class Cube {
     return newFaceIndex;
   }
   
+  // logic to get the front face of cube
   getFrontFaceIndex(rotX, rotY) {
     const normalizedX = ((Math.round(rotX / (Math.PI / 2)) % 4) + 4) % 4;
     const normalizedY = ((Math.round(rotY / (Math.PI / 2)) % 4) + 4) % 4;
@@ -448,6 +456,7 @@ export class Cube {
     return faceMap[normalizedY];
   }
   
+  // handle normal clicking
   handleClick(event, isClickOnUI, popupPlaneController) {
     // Never fire during drag or on other UI
     if (this.isDragging || isClickOnUI(event)) {
@@ -486,6 +495,7 @@ export class Cube {
     console.log("Click not handled by video controls or popup plane");
   }
   
+  // handle the double clicking
   handleDoubleClick(event, isClickOnUI, popupPlaneController, showPopupPlane, hidePopup) {
     if (!this.initialSnap) return;
     if (this.isDragging || isClickOnUI(event)) return;
@@ -545,6 +555,7 @@ export class Cube {
     showPopupPlane(faceIndex);
   }
   
+  // logic for bouncing animation
   animate(time, popupState) {
     if (!this.cube) return;
     

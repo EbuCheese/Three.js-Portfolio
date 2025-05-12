@@ -5,6 +5,7 @@ export class EventManager {
     this.cursor = null;
   }
   
+  // init the events for Application.js
   init() {
     this.createCustomCursor();
     this.setupMouseEvents();
@@ -30,6 +31,8 @@ export class EventManager {
     });
   }
   
+  /// Events from the cube controller ///
+
   setupMouseEvents() {
     window.addEventListener('mousedown', this.handleMouseDown.bind(this));
     window.addEventListener('mouseup', this.handleMouseUp.bind(this));
@@ -146,6 +149,7 @@ export class EventManager {
     console.log("Click not handled by video controls or popup plane");
   }
   
+  // mange the double click from Cube.js
   handleDoubleClick(event) {
     const { cubeController, popupPlaneController } = this.app;
     

@@ -117,6 +117,7 @@ export class Application {
     this.composer.setSize(window.innerWidth, window.innerHeight);
   }
   
+  // animate manager, managing popupPlane animate method
   animate() {
     requestAnimationFrame(this.animate.bind(this));
     
@@ -138,6 +139,7 @@ export class Application {
     this.composer.render();
   }
   
+  // showPopupPlane manager, managing popupPlane showPopupPlane method
   showPopupPlane(faceIndex) {
     // Check if there's an animation in progress
     const popupState = this.popupPlaneController.getPopupState();
@@ -175,6 +177,7 @@ export class Application {
     );
   }
   
+  // hidePopup manager, managing popupPlane hidePopup method
   hidePopup() {
     // Check if popup is currently animating before proceeding
     const popupState = this.popupPlaneController.getPopupState();
@@ -186,6 +189,7 @@ export class Application {
     this.popupPlaneController.hidePopup(() => this.uiManager.updateLink(null));
   }
   
+  // start the animation
   start() {
     console.log("Starting animation loop");
     this.animate();

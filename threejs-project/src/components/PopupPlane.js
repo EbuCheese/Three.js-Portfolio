@@ -12,7 +12,7 @@ const popupGeometry = new THREE.PlaneGeometry(popupWidth, popupHeight, 4, 4);
 const borderGeometry = new THREE.PlaneGeometry(popupWidth + borderThickness, popupHeight + borderThickness, 4, 4);
 const shadowGeometry = new THREE.PlaneGeometry(popupWidth + 0.1, popupHeight + 0.1, 4, 4);
 
-// Glow material for the border
+// Glow material for the popup border
 const glowPlaneMaterial = new THREE.ShaderMaterial({
   uniforms: {
     glowColor: { value: new THREE.Color(0x00ffff) },
