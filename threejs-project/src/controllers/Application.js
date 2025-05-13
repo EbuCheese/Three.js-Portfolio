@@ -150,15 +150,10 @@ export class Application {
     this.bloomPass.enabled = true;
   }
   
-  // // Update cube materials (if they have performance-impacting settings)
-  // if (this.cubeController) {
-  //   this.cubeController.updateMaterialQuality(isLowPerf);
-  // }
-  
-  // // Update popup plane materials if needed
-  // if (this.popupPlaneController) {
-  //   this.popupPlaneController.updateMaterialQuality(isLowPerf);
-  // }
+  // Update cube materials (if they have performance-impacting settings)
+  if (this.cubeController) {
+    this.cubeController.updateMaterialQuality(isLowPerf);
+  }
   
   // Force resize to apply pixel ratio changes
   this.onWindowResize();
@@ -166,25 +161,42 @@ export class Application {
 
   // animate manager, managing popupPlane animate method
   animate() {
-    requestAnimationFrame(this.animate.bind(this));
-    
-    const time = this.clock.getElapsedTime();
-    const popupState = this.popupPlaneController.getPopupState();
-    
-    // Update bloom and other effects
+  requestAnimationFrame(this.animate.bind(this));
+  
+  const time = this.clock.getElapsedTime();
+  const popupState = this.popupPlaneController.getPopupState();
+  
+  // Update bloom and other effects - skip in low performance mode
+  if (!this.isLowPerformanceMode) {
     this.popupPlaneController.updateBloom();
+  }
+  
+  // Update cube animation - possibly with simplified animation in low perf mode
+  this.cubeController.animate(time, popupState, this.isLowPerformanceMode);
+  
+  // Update video controls in the animation loop - always needed for functionality
+  if (this.popupPlaneController.videoControls) {
+    this.popupPlaneController.videoControls.animate();
+  }
+  
+  // Render scene - use simpler rendering in low perf mode
+  if (this.isLowPerformanceMode) {
+    // In low perf mode, potentially skip some frames when nothing important is happening
+    const currentTime = this.clock.getElapsedTime();
+    this.lastRenderTime = currentTime;
     
-    // Update cube animation
-    this.cubeController.animate(time, popupState);
-    
-    // Update video controls in the animation loop
-    if (this.popupPlaneController.videoControls) {
-      this.popupPlaneController.videoControls.animate();
+    // Direct render without post-processing when possible
+    if (!popupState.isActive && !popupState.isAnimating) {
+      this.renderer.render(this.scene, this.camera);
+    } else {
+      // Use composer for popups even in low perf mode for proper display
+      this.composer.render();
     }
-    
-    // Render scene
+  } else {
+    // Normal render with post-processing
     this.composer.render();
   }
+}
   
   // showPopupPlane manager, managing popupPlane showPopupPlane method
   showPopupPlane(faceIndex) {

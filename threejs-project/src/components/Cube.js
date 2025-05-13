@@ -27,7 +27,7 @@ export class Cube {
     this.startY = 0;
     this.DRAG_THRESHOLD = 3;
     this.hasShownClickHint = false;
-    
+
     // Project data 
     this.projects = [
       { image: '/fish.jpg', video: '/testvid.mp4', link: 'https://github.com/you/project2', name: 'Right (+X)' },
@@ -555,28 +555,94 @@ export class Cube {
     showPopupPlane(faceIndex);
   }
   
-  // logic for bouncing animation
-  animate(time, popupState) {
-    if (!this.cube) return;
-    
-    const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
-    const pauseDuration = 0.25;    // Pause at center
-    const cycleDuration = (phaseDuration + pauseDuration) * 2; // Total cycle time
-    const amplitude = 0.03;
-    
-    // Helper: clean sine wave cycle
-    function sineCycle(t) {
-      return Math.sin(t * Math.PI * 2); // Starts and ends at 0
+  updateMaterialQuality(isLowPerf) {
+  if (!this.materials) return;
+  
+  // Store original material properties if not already stored
+  if (!this.originalMaterialProps && isLowPerf) {
+    this.originalMaterialProps = this.materials.map(material => ({
+      roughness: material.roughness,
+      metalness: material.metalness,
+      envMapIntensity: material.envMapIntensity,
+      anisotropy: material.map?.anisotropy,
+      mipMapBias: material.map?.mipMapBias,
+      generateMipmaps: material.map?.generateMipmaps,
+      minFilter: material.map?.minFilter,
+      magFilter: material.map?.magFilter
+    }));
+  }
+  
+  // Apply optimizations to all materials
+  this.materials.forEach((material, index) => {
+    if (isLowPerf) {
+      // Reduce material complexity
+      material.roughness = 1.0; // Simpler lighting calculation
+      material.metalness = 0.0; // Simpler lighting calculation
+      material.envMapIntensity = 0.0; // Disable environment reflections
+      material.flatShading = true; // Use flat shading instead of smooth
+      
+      // Reduce texture quality
+      if (material.map) {
+        material.map.anisotropy = 1; // Disable anisotropic filtering
+        material.map.generateMipmaps = false; // Disable mipmap generation
+        material.map.minFilter = THREE.LinearFilter; // Simpler texture filtering
+        material.map.magFilter = THREE.LinearFilter;
+      }
+      
+      // Disable any material-specific effects
+      if (material.emissive) {
+        material.emissiveIntensity = 0;
+      }
+    } else if (this.originalMaterialProps) {
+      // Restore original material quality from stored values
+      const origProps = this.originalMaterialProps[index];
+      material.roughness = origProps.roughness;
+      material.metalness = origProps.metalness;
+      material.envMapIntensity = origProps.envMapIntensity;
+      material.flatShading = false;
+      
+      if (material.map) {
+        material.map.anisotropy = origProps.anisotropy;
+        material.map.generateMipmaps = origProps.generateMipmaps;
+        material.map.minFilter = origProps.minFilter;
+        material.map.magFilter = origProps.magFilter;
+      }
+      
+      if (material.emissive) {
+        material.emissiveIntensity = 1.0;
+      }
     }
     
-    // Only animate if popup is not visible
-    if (!popupState.isActive) {
-      const t = time % cycleDuration;
-      
-      // Reset positions
-      this.cube.position.x = 0;
-      this.cube.position.y = 0;
-      
+    material.needsUpdate = true;
+    if (material.map) material.map.needsUpdate = true;
+  });
+  
+}
+
+  // logic for bouncing animation
+  animate(time, popupState, isLowPerformanceMode = false) {
+  if (!this.cube) return;
+  
+  const phaseDuration = 4;       // Time to complete 1 full wave (e.g., up-down-up)
+  const pauseDuration = 0.25;    // Pause at center
+  const cycleDuration = (phaseDuration + pauseDuration) * 2; // Total cycle time
+  const amplitude = isLowPerformanceMode ? 0 : 0.03; // No bounce animation in low perf mode
+  
+  // Helper: clean sine wave cycle
+  function sineCycle(t) {
+    return Math.sin(t * Math.PI * 2); // Starts and ends at 0
+  }
+  
+  // Only animate if popup is not visible
+  if (!popupState.isActive) {
+    const t = time % cycleDuration;
+    
+    // Reset positions
+    this.cube.position.x = 0;
+    this.cube.position.y = 0;
+    
+    // Skip subtle animations in low performance mode
+    if (!isLowPerformanceMode) {
       if (t < phaseDuration) {
         // Phase 1: up-down-up (Y axis)
         const progress = t / phaseDuration;
@@ -592,16 +658,18 @@ export class Cube {
         // Phase 4: pause in center (X axis)
         this.cube.position.x = 0;
       }
-    } else {
-      // Reset position when popup is shown
-      this.cube.position.x = 0;
-      this.cube.position.y = 0;
     }
-    
-    // Smooth rotation logic 
-    this.cube.rotation.x += (this.targetRotation.x - this.cube.rotation.x) * this.easing;
-    this.cube.rotation.y += (this.targetRotation.y - this.cube.rotation.y) * this.easing;
+  } else {
+    // Reset position when popup is shown
+    this.cube.position.x = 0;
+    this.cube.position.y = 0;
   }
+  
+  // Smooth rotation logic - less smooth in low performance mode for better performance
+  const easing = isLowPerformanceMode ? this.easing * 1.5 : this.easing;
+  this.cube.rotation.x += (this.targetRotation.x - this.cube.rotation.x) * easing;
+  this.cube.rotation.y += (this.targetRotation.y - this.cube.rotation.y) * easing;
+}
   
   getShuffledProjects() {
     return this.shuffledProjects;
