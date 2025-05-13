@@ -18,6 +18,9 @@ export class Application {
     this.composer = null;
     this.bloomPass = null;
     
+    // Performance Toggle
+    this.isLowPerformanceMode = false;
+
     // Interaction components
     this.raycaster = null;
     this.mouse = null;
@@ -117,6 +120,50 @@ export class Application {
     this.composer.setSize(window.innerWidth, window.innerHeight);
   }
   
+  setLowPerformanceMode(isLowPerf) {
+  console.log(`Setting low performance mode: ${isLowPerf}`);
+  this.isLowPerformanceMode = isLowPerf;
+  
+  // Update renderer settings
+  if (isLowPerf) {
+    // Lower resolution rendering
+    this.renderer.setPixelRatio(1);
+     
+    // Reduce shadow quality
+    this.renderer.shadowMap.enabled = false;
+    
+    // Disable physically correct lights for better performance
+    this.renderer.physicallyCorrectLights = false;
+    
+    // Reduce tone mapping quality
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    
+    // Disable bloom effect or reduce quality
+    this.bloomPass.enabled = false;
+  } else {
+    // Restore high quality settings
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.physicallyCorrectLights = true;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.2;
+    this.bloomPass.enabled = true;
+  }
+  
+  // // Update cube materials (if they have performance-impacting settings)
+  // if (this.cubeController) {
+  //   this.cubeController.updateMaterialQuality(isLowPerf);
+  // }
+  
+  // // Update popup plane materials if needed
+  // if (this.popupPlaneController) {
+  //   this.popupPlaneController.updateMaterialQuality(isLowPerf);
+  // }
+  
+  // Force resize to apply pixel ratio changes
+  this.onWindowResize();
+  }
+
   // animate manager, managing popupPlane animate method
   animate() {
     requestAnimationFrame(this.animate.bind(this));

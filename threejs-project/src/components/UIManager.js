@@ -7,6 +7,7 @@ export class UIManager {
   init() {
     this.setupHelpPanel();
     this.setupBackgroundSelector();
+    this.setupPerformanceToggle();
   }
   
   setupHelpPanel() {
@@ -83,6 +84,29 @@ export class UIManager {
       () => this.app.hidePopup(), 
       (faceIndex) => this.updateLink(faceIndex)
     );
+  }
+
+    setupPerformanceToggle() {
+    const performanceToggle = document.getElementById('performance-mode');
+    if (!performanceToggle) return;
+    
+    // Check if user has previously set a preference
+    const savedPerformanceMode = localStorage.getItem('lowPerformanceMode');
+    if (savedPerformanceMode === 'true') {
+      performanceToggle.checked = true;
+      this.app.setLowPerformanceMode(true);
+    }
+    
+    // Toggle performance mode when checkbox is clicked
+    performanceToggle.addEventListener('change', (e) => {
+      const isLowPerf = e.target.checked;
+      
+      // Save preference to localStorage
+      localStorage.setItem('lowPerformanceMode', isLowPerf);
+      
+      // Apply performance settings
+      this.app.setLowPerformanceMode(isLowPerf);
+    });
   }
   
   // update the link for popupPlane
