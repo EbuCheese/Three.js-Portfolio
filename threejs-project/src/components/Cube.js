@@ -96,6 +96,9 @@ export class Cube {
       // Add cube to scene
       this.scene.add(this.cube);
       
+      // Set initial size based on viewport
+      this.updateCubeSize();
+
       // Fade in materials
       this.fadeInMaterials();
       
@@ -616,6 +619,54 @@ export class Cube {
     material.needsUpdate = true;
     if (material.map) material.map.needsUpdate = true;
   });
+  
+}
+
+  updateCubeSize() {
+  if (!this.cube) return;
+  
+  // Get viewport dimensions
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspectRatio = width / height;
+  
+  // Calculate scale factor based on viewport size and orientation
+  const isMobile = width <= 768;
+  const isTablet = width > 768 && width <= 1024;
+  const isLandscape = aspectRatio > 1;
+  
+  // Base scale - default is 1.0 for desktop
+  let scale = 1.0;
+  
+  if (isMobile) {
+    if (isLandscape) {
+      // Landscape phone - make it as large as possible
+      scale = 0.95;
+    } else {
+      // Portrait phone (though we'll be showing orientation message)
+      scale = 0.7;
+    }
+  } else if (isTablet) {
+    if (isLandscape) {
+      // Landscape tablet - optimize for readability
+      scale = 1.0;
+    } else {
+      // Portrait tablet (though we'll be showing orientation message)
+      scale = 0.9;
+    }
+  } else {
+    // Desktop sizing - responsive based on screen width
+    scale = Math.min(1.0, width / 1400);
+    scale = Math.max(0.85, scale); // Ensure minimum size
+  }
+  
+  // Apply scale to cube
+  this.cube.scale.set(scale, scale, scale);
+  
+  // Log the adjustment for debugging
+  console.log(`Cube size adjusted: width=${width}, height=${height}, 
+               aspect=${aspectRatio.toFixed(2)}, scale=${scale.toFixed(2)}, 
+               orientation=${isLandscape ? 'landscape' : 'portrait'}`);
   
 }
 

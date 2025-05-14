@@ -8,6 +8,7 @@ import { Cube } from '../components/Cube';
 import { PopupPlane } from '../components/PopupPlane';
 import { UIManager } from '../components/UIManager';
 import { EventManager } from '../components/EventManager';
+import { OrientationHandler } from '../components/OrientationHandler';
 
 export class Application {
   constructor() {
@@ -33,6 +34,9 @@ export class Application {
     
     // State
     this.clock = new THREE.Clock();
+
+    // Orientation
+    this.orientationHandler = null;
   }
   
   async init() {
@@ -73,11 +77,15 @@ export class Application {
   }
   
   initThreeJS() {
+    // Create orientation handler before setting up rest of scene
+    this.orientationHandler = new OrientationHandler();
+
     // Scene setup
     this.scene = new THREE.Scene();
     
     // Camera setup
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    this.updateCameraForViewport();
     this.camera.position.z = 2.5;
     
     // Renderer setup
@@ -92,6 +100,10 @@ export class Application {
     
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
+    window.addEventListener('orientationchange', () => {
+      // Small delay to ensure new dimensions are ready
+      setTimeout(this.onWindowResize.bind(this), 100);
+    });
   }
   
   initPostprocessing() {
@@ -113,12 +125,67 @@ export class Application {
     this.mouse = new THREE.Vector2();
   }
   
-  onWindowResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.composer.setSize(window.innerWidth, window.innerHeight);
+  // Update camera fov based on device dimensions
+updateCameraForViewport() {
+  if (!this.camera) return;
+  
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const aspectRatio = width / height;
+  
+  // Adjust field of view for different devices in landscape mode
+  let fov = 50; // Default FOV
+  let zPosition = 2.5; // Default z position
+  
+  // For mobile landscape
+  if (width <= 900) {
+    if (aspectRatio > 1) { // Landscape
+      fov = 50; // Wider FOV for landscape mobile
+      zPosition = 2; // Closer to see better
+    } else {
+      fov = 45;
+      zPosition = 2.5;
+    }
+  } 
+  // For tablet landscape
+  else if (width <= 1180) {
+    if (aspectRatio > 1) { // Landscape
+      fov = 55;
+      zPosition = 2.15;
+    } else {
+      fov = 45;
+      zPosition = 2.85;
+    }
+  } 
+  // For desktop
+  else {
+    fov = 50;
+    zPosition = 2.5;
   }
+  
+  // Update the camera parameters
+  this.camera.fov = fov;
+  this.camera.aspect = width / height;
+  this.camera.position.z = zPosition;
+  this.camera.updateProjectionMatrix();
+  
+  console.log(`Camera updated: FOV=${fov}, Z=${zPosition}, aspect=${aspectRatio.toFixed(2)}`);
+}
+
+
+  onWindowResize() {
+  // Update camera aspect and projection
+  this.updateCameraForViewport();
+  
+  // Update renderer size
+  this.renderer.setSize(window.innerWidth, window.innerHeight);
+  this.composer.setSize(window.innerWidth, window.innerHeight);
+  
+  // Update cube size
+  if (this.cubeController) {
+    this.cubeController.updateCubeSize();
+  }
+}
   
   setLowPerformanceMode(isLowPerf) {
   console.log(`Setting low performance mode: ${isLowPerf}`);
@@ -161,6 +228,12 @@ export class Application {
 
   // animate manager, managing popupPlane animate method
   animate() {
+
+  if (this.orientationHandler && !this.orientationHandler.shouldRender()) {
+    requestAnimationFrame(this.animate.bind(this));
+    return; // Skip rendering
+  }
+
   requestAnimationFrame(this.animate.bind(this));
   
   const time = this.clock.getElapsedTime();
