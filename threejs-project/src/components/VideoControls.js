@@ -70,15 +70,25 @@ class VideoControls {
     this.controls.position.copy(popupPlane.position);
     this.controls.rotation.copy(popupPlane.rotation);
     
+    const isMobile = window.innerWidth <= 900;
+
     // Offset to bottom of video
-    const localOffset = new THREE.Vector3(0, -popupHeight/2 + 0.05, 0.001);
+    const localOffset = isMobile ? new THREE.Vector3(0, -popupHeight/2 + -0.045, 0.001) : new THREE.Vector3(0, -popupHeight/2 + 0.05, 0.001) ;
     this.controls.position.add(
       localOffset.applyQuaternion(popupPlane.quaternion)
     );
-    
+
+    // For mobile, make controls larger
+    if (isMobile) {
+      // Scale up controls for mobile - use same factor as popup
+      this.controls.scale.set(1.2, 1.15, 1.2);
+    } else {
+      // Normal scale for desktop
+      this.controls.scale.set(1, 1, 1);
+    }
+
     // Ensure controls are visible and properly sized from the start
     this.controls.visible = this.isVisible; 
-    this.controls.scale.set(1, 1, 1);
     this.controls.renderOrder = 1000; // Ensure it renders on top
     
     this.cube.add(this.controls);
@@ -480,31 +490,38 @@ class VideoControls {
     console.log('video controls visible: ', this.isVisible);
 
     if (this.controls) {
-      if (this.isVisible) {
-        // Show controls with animation
-        this.controls.visible = true;
-        gsap.fromTo(this.controls.scale, 
-          { y: 0 },
-          { y: 1, duration: 0.3, ease: "back.out(1.7)" }
-        );
-      } else {
-        // Hide controls with animation
-        gsap.to(this.controls.scale, {
-          y: 0,
-          duration: 0.3,
-          ease: "back.in(1.7)",
-          onComplete: () => {
-            if (this.controls) {
-              this.controls.visible = false;
-            }
+    // Get the current X scale which contains our mobile adjustment if applicable
+    const currentXScale = this.controls.scale.x;
+    
+    if (this.isVisible) {
+      // Show controls with animation
+      this.controls.visible = true;
+      gsap.fromTo(this.controls.scale, 
+        { y: 0 },
+        { 
+          y: currentXScale, // Use the same scale as X (1.2 for mobile, 1.0 for desktop)
+          duration: 0.3, 
+          ease: "back.out(1.7)" 
+        }
+      );
+    } else {
+      // Hide controls with animation
+      gsap.to(this.controls.scale, {
+        y: 0,
+        duration: 0.3,
+        ease: "back.in(1.7)",
+        onComplete: () => {
+          if (this.controls) {
+            this.controls.visible = false;
           }
-        });
-      }
-      
-      // Update the control panel UI (show/hide button)
-      this.update();
+        }
+      });
     }
+    
+    // Update the control panel UI (show/hide button)
+    this.update();
   }
+}
 
   /**
    * Toggle video playback

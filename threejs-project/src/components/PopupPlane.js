@@ -107,6 +107,8 @@ class PopupPlane {
    * @param {Function} snapRotation - Function to snap the cube rotation
    */
   showPopupPlane(faceIndex, projects, materials, onPopupShow, addVideoControls, updateLink, snapRotation) {
+    
+
     // Remove the click hint element if on screen
     const clickHint = document.getElementById('click-hint');
     if (clickHint) {
@@ -226,27 +228,42 @@ class PopupPlane {
 
     this.isPopupActive = true;
 
-    gsap.to([this.popupPlane.scale, this.borderPlane.scale, this.shadowPlane.scale], {
-      x: 1,
-      y: 1,
-      z: 1,
-      duration: 0.6,
-      ease: "back.out(1.7)",
-      onComplete: () => {
-        this.isPopupActive = true;
-        this.isOpening = false;
-        document.getElementById('link-btn').style.display = 'flex';
-        updateLink(faceIndex);
-        snapRotation();
+    // Determine if we're on a mobile device
+  const isMobile = window.innerWidth <= 900;
+  const scaleFactor = isMobile ? 1.2 : 1.0;
+  
+  // Set up initial scale (still zero to animate from)
+  this.popupPlane.scale.set(0, 0, 0);
+  this.borderPlane.scale.set(0, 0, 0);
+  this.shadowPlane.scale.set(0, 0, 0);
+  
+  // Final scale values
+  const finalScaleX = scaleFactor;
+  const finalScaleY = scaleFactor;
+  const finalScaleZ = 1; // Keep depth scale at 1
+  
+  // Animation code
+  gsap.to([this.popupPlane.scale, this.borderPlane.scale, this.shadowPlane.scale], {
+    x: finalScaleX,
+    y: finalScaleY,
+    z: finalScaleZ,
+    duration: 0.6,
+    ease: "back.out(1.7)",
+    onComplete: () => {
+      this.isPopupActive = true;
+      this.isOpening = false;
+      document.getElementById('link-btn').style.display = 'flex';
+      updateLink(faceIndex);
+      snapRotation();
 
-        if (videoElement) {
-          const popupState = this.getPopupState();
-          this.videoControls.add(videoElement, this.popupPlane, popupState);
-        }
-
-        if (onPopupShow) onPopupShow();
+      if (videoElement) {
+        const popupState = this.getPopupState();
+        addVideoControls(videoElement, this.popupPlane, popupState);
       }
-    });
+
+      if (onPopupShow) onPopupShow();
+    }
+  });
 
     gsap.to(this.popupPlane.material, {
       opacity: 1,

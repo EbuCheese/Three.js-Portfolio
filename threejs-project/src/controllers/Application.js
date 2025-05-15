@@ -66,7 +66,7 @@ export class Application {
     
     // Initial link update
     this.uiManager.updateLink(this.cubeController.getCurrentFaceIndex());
-    
+  
     // Fade out loading screen
     const loadingScreen = document.getElementById('loading-screen');
     if (loadingScreen) {
@@ -76,9 +76,19 @@ export class Application {
     console.log("Application initialized");
   }
   
+  isMobileDevice() {
+    return window.innerWidth <= 900;
+  }
+
   initThreeJS() {
     // Create orientation handler before setting up rest of scene
     this.orientationHandler = new OrientationHandler();
+
+    // Automatically enable low performance mode on mobile
+    if (this.isMobileDevice()) {
+      this.isLowPerformanceMode = true;
+      console.log("Mobile device detected - enabling low performance mode automatically");
+    }
 
     // Scene setup
     this.scene = new THREE.Scene();
@@ -187,7 +197,7 @@ updateCameraForViewport() {
   }
 }
   
-  setLowPerformanceMode(isLowPerf) {
+setLowPerformanceMode(isLowPerf) {
   console.log(`Setting low performance mode: ${isLowPerf}`);
   this.isLowPerformanceMode = isLowPerf;
   
@@ -224,7 +234,7 @@ updateCameraForViewport() {
   
   // Force resize to apply pixel ratio changes
   this.onWindowResize();
-  }
+}
 
   // animate manager, managing popupPlane animate method
   animate() {

@@ -620,7 +620,7 @@ input:checked + .toggle-slider:before {
 
 /* Responsive adjustments for landscape mode on smaller screens */
 @media (max-width: 1023px) and (orientation: landscape) {
-  /* Adjust UI element sizes and positions */
+
   #link-btn {
     bottom: 0%;
     font-size: 0.8rem;
@@ -642,7 +642,11 @@ input:checked + .toggle-slider:before {
     font-size: 1rem;
     top: 0%;
   }
-  
+
+  .performance-toggle {
+    display: none;
+  }
+
   #help-panel {
     width: 180px;
     font-size: 0.8rem;
@@ -705,7 +709,7 @@ input:checked + .toggle-slider:before {
 /* Responsive adjustments for very small screens */
 @media (max-width: 950px) and (orientation: landscape) {
   #link-btn {
-    bottom: 0%;
+    bottom: 91.5%;
     font-size: 0.7rem;
     padding: 6px 12px;
   }
@@ -717,16 +721,25 @@ input:checked + .toggle-slider:before {
   
   #bg-selector {
     padding: 0.25rem 0.4rem;
-    top: 0%;
+    top: 0.5%;
     font-size: 1rem;
+    right: 0.25rem;
   }
 
   #help-button, .performance-toggle {
     padding: 0.4rem 0.8rem;
     font-size: 1rem;
-    top: 0%;
   }
   
+  #help-button {
+    left: 0.5%;
+    top: 0.5%;
+  }
+
+  #scroll-hint, #click-hint {
+    font-size: 1px;
+    padding: 2px 7px;
+  }
   
   .performance-toggle {
     left: 3.8rem;
@@ -736,6 +749,8 @@ input:checked + .toggle-slider:before {
     width: 150px;
     font-size: 0.7rem;
     padding: 0.8rem;
+    top: 2.3rem;
+    left: 0.5%;
   }
   
   #help-panel h2 {
