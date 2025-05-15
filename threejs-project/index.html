@@ -617,6 +617,183 @@ input:checked + .toggle-slider:before {
   letter-spacing: 0.5px;
 }
 
+
+/* Responsive adjustments for landscape mode on smaller screens */
+@media (max-width: 1023px) and (orientation: landscape) {
+  /* Adjust UI element sizes and positions */
+  #link-btn {
+    bottom: 0%;
+    font-size: 0.8rem;
+    padding: 4px 15px;
+  }
+  
+  #github-logo {
+    width: 20px;
+    height: 20px;
+  }
+  
+  #help-button, .performance-toggle, #bg-selector {
+    padding: 0.4rem 0.8rem;
+    font-size: 1rem;
+  }
+
+  #help-button, .performance-toggle {
+    padding: 0.4rem 0.8rem;
+    font-size: 1rem;
+    top: 0%;
+  }
+  
+  #help-panel {
+    width: 180px;
+    font-size: 0.8rem;
+  }
+  
+  #help-panel h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  #help-panel li {
+    margin-bottom: 0.5rem;
+  }
+  
+  #scroll-hint, #click-hint {
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+  
+  #drag-hand, #double-click {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .toggle-switch {
+    width: 40px;
+    height: 20px;
+  }
+  
+  .toggle-slider:before {
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 2px;
+  }
+  
+  input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+  }
+  
+  .toggle-label {
+    font-size: 0.8rem;
+  }
+  
+  .performance-toggle {
+    left: 4.5rem;
+  }
+  
+  /* Adjust loading screen */
+  .loading-text {
+    font-size: 2rem;
+  }
+  
+  .cube-loader {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 950px) and (orientation: landscape) {
+  #link-btn {
+    bottom: 0%;
+    font-size: 0.7rem;
+    padding: 6px 12px;
+  }
+  
+  #github-logo {
+    width: 16px;
+    height: 16px;
+  }
+  
+  #bg-selector {
+    padding: 0.25rem 0.4rem;
+    top: 0%;
+    font-size: 1rem;
+  }
+
+  #help-button, .performance-toggle {
+    padding: 0.4rem 0.8rem;
+    font-size: 1rem;
+    top: 0%;
+  }
+  
+  
+  .performance-toggle {
+    left: 3.8rem;
+  }
+  
+  #help-panel {
+    width: 150px;
+    font-size: 0.7rem;
+    padding: 0.8rem;
+  }
+  
+  #help-panel h2 {
+    font-size: 0.9rem;
+  }
+  
+  .toggle-switch {
+    width: 34px;
+    height: 18px;
+  }
+  
+  .toggle-slider:before {
+    height: 12px;
+    width: 12px;
+  }
+  
+  input:checked + .toggle-slider:before {
+    transform: translateX(16px);
+  }
+  
+  .toggle-label {
+    font-size: 0.7rem;
+  }
+  
+  #custom-cursor {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .cursor-square {
+    width: 18px !important;
+    height: 14px !important;
+  }
+  
+}
+
+/* Ensure performance on high pixel density displays */
+@media screen and (min-resolution: 2dppx) {
+  /* Optimize animations for high DPI screens */
+  @keyframes cursorPulse {
+    0%, 100% {
+      box-shadow: 0 0 8px #00ffff, 0 0 16px rgba(0, 255, 255, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 14px #00ffff, 0 0 28px rgba(0, 255, 255, 0.7);
+    }
+  }
+  
+  /* Reduce shadow intensity on high DPI screens for better performance */
+  #link-btn, #help-button, .performance-toggle, #bg-selector {
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+  }
+  
+  #link-btn:hover, #help-button:hover, .performance-toggle:hover, #bg-selector:hover {
+    box-shadow: 0 0 12px rgba(0, 255, 255, 0.7);
+  }
+}
+
 </style>
 </head>
 <body>
