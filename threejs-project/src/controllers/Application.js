@@ -194,6 +194,7 @@ updateCameraForViewport() {
   // Update cube size
   if (this.cubeController) {
     this.cubeController.updateCubeSize();
+    this.popupPlaneController.hidePopup(); // hide popup to avoid bug when re-sizing window
   }
 }
   
